@@ -8,6 +8,7 @@ import Topo from '../componentes/Topo'
 import BotaoMais from '../componentes/BotaoMais'
 import { supabase } from '../lib/supabase'
 import { reais, nomeDoMes, somarMeses } from '../lib/formato'
+import { estenderRecorrencias } from '../lib/lancamentos'
 
 interface Resumo {
   saldoInicial: number
@@ -73,7 +74,7 @@ export default function Home() {
   useEffect(() => {
     let vivo = true
     setResumo(null)
-    carregarResumo(mes).then(r => { if (vivo) setResumo(r) })
+    estenderRecorrencias().then(() => carregarResumo(mes)).then(r => { if (vivo) setResumo(r) })
     return () => { vivo = false }
   }, [mes])
 
@@ -122,7 +123,7 @@ export default function Home() {
               <>
                 <span>Você tem <b style={{ color: `var(--${aba})` }}>{pend.pendentes} {rotulo} pendentes</b> no total de</span>
                 <strong>{reais(pend.totalPendente)}</strong>
-                <button className="btn" onClick={() => ir('/lancamentos')}>Ver {rotulo} pendentes</button>
+                <button className="btn" onClick={() => ir(`/lancamentos?mes=${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}&tipo=${aba}&situacao=pendente`)}>Ver {rotulo} pendentes</button>
               </>
             ) : (
               <span className="aviso">Nenhuma {aba} pendente neste mês.</span>

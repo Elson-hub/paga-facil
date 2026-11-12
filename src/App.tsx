@@ -13,6 +13,8 @@ import CategoriaForm from './paginas/CategoriaForm'
 import Cartoes from './paginas/Cartoes'
 import CartaoForm from './paginas/CartaoForm'
 import Tags from './paginas/Tags'
+import Lancamentos from './paginas/Lancamentos'
+import LancamentoForm from './paginas/LancamentoForm'
 
 function Rotas() {
   const { sessao, carregando, recuperandoSenha } = useAuth()
@@ -33,9 +35,10 @@ function Rotas() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
-        <Route path="lancamentos" element={<EmBreve titulo="Lançamentos" quando="na entrega 3" />} />
-        <Route path="novo/receita" element={<EmBreve titulo="Nova receita" quando="na entrega 3" />} />
-        <Route path="novo/despesa" element={<EmBreve titulo="Nova despesa" quando="na entrega 3" />} />
+        <Route path="lancamentos" element={<Lancamentos />} />
+        <Route path="lancamentos/:id" element={<LancamentoForm key="editar" />} />
+        <Route path="novo/receita" element={<LancamentoForm key="receita" tipoNovo="receita" />} />
+        <Route path="novo/despesa" element={<LancamentoForm key="despesa" tipoNovo="despesa" />} />
         <Route path="novo/transferencia" element={<EmBreve titulo="Nova transferência" quando="na entrega 3" />} />
         <Route path="novo/despesa-cartao" element={<EmBreve titulo="Nova despesa de cartão" quando="na entrega 6" />} />
         <Route path="categorias" element={<Categorias />} />
