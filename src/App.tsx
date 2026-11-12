@@ -10,6 +10,9 @@ import Contas from './paginas/Contas'
 import ContaForm from './paginas/ContaForm'
 import Categorias from './paginas/Categorias'
 import CategoriaForm from './paginas/CategoriaForm'
+import Cartoes from './paginas/Cartoes'
+import CartaoForm from './paginas/CartaoForm'
+import Tags from './paginas/Tags'
 
 function Rotas() {
   const { sessao, carregando, recuperandoSenha } = useAuth()
@@ -41,8 +44,10 @@ function Rotas() {
         <Route path="contas" element={<Contas />} />
         <Route path="contas/nova" element={<ContaForm />} />
         <Route path="contas/:id" element={<ContaForm />} />
-        <Route path="cartoes" element={<EmBreve titulo="Cartões de crédito" quando="na entrega 2" />} />
-        <Route path="tags" element={<EmBreve titulo="Tags" quando="na entrega 2" />} />
+        <Route path="cartoes" element={<Cartoes />} />
+        <Route path="cartoes/novo" element={<CartaoForm />} />
+        <Route path="cartoes/:id" element={<CartaoForm />} />
+        <Route path="tags" element={<Tags />} />
         <Route path="aparencia" element={<Aparencia />} />
         <Route path="backup" element={<EmBreve titulo="Backup" quando="na fase 2" />} />
         <Route path="open-finance" element={<EmBreve titulo="Open Finance" quando="na fase 2" />} />
