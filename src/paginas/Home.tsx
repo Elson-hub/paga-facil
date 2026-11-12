@@ -107,7 +107,7 @@ export default function Home() {
             <IconBuildingBank size={32} />
             <strong>Cadastre sua primeira conta</strong>
             <span>Informe o saldo de hoje e o Paga Fácil passa a calcular tudo a partir dele.</span>
-            <button className="btn btn-principal" onClick={() => ir('/contas')}>Cadastrar conta</button>
+            <button className="btn btn-principal" onClick={() => ir('/contas/nova')}>Cadastrar conta</button>
           </section>
         )}
 

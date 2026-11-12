@@ -182,3 +182,44 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 
 .vazio { text-align: center; color: var(--texto-2); display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 8px; }
 .carregando { min-height: 100dvh; display: flex; align-items: center; justify-content: center; color: var(--texto-2); }
+
+/* ---------- Formulários e listas (entrega 2) ---------- */
+.formulario { display: flex; flex-direction: column; gap: 16px; }
+.campo select {
+  height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--borda);
+  background: var(--superficie); font-size: 16px;
+}
+.campo select:focus { outline: 2px solid var(--principal); outline-offset: -1px; }
+.campo-valor {
+  display: flex; align-items: center; height: 46px; border: 1px solid var(--borda);
+  border-radius: 10px; background: var(--superficie); overflow: hidden;
+}
+.campo-valor:focus-within { outline: 2px solid var(--principal); outline-offset: -1px; }
+.campo-valor .moeda { padding: 0 4px 0 14px; color: var(--texto-2); }
+.campo-valor input { flex: 1; border: 0; height: 100%; padding: 0 14px 0 4px; outline: none; background: transparent; font-size: 16px; text-align: right; }
+.campo-valor .sinal {
+  width: 46px; height: 100%; border: 0; border-right: 1px solid var(--borda); background: var(--superficie-2);
+  font-size: 20px; cursor: pointer; color: var(--receita);
+}
+.campo-valor .sinal.neg { color: var(--despesa); }
+.ajuda { color: var(--texto-3); font-size: 12.5px; }
+.interruptor { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.interruptor input { width: 20px; height: 20px; accent-color: var(--principal); }
+.negativo { color: var(--despesa) !important; }
+
+.resumo-contas { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.resumo-contas small { display: block; color: var(--texto-2); font-size: 12.5px; margin-bottom: 2px; }
+.resumo-contas strong { font-size: 22px; }
+.resumo-contas div:last-child:not(:first-child) { text-align: right; }
+.lista { padding: 6px; }
+.item-lista {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 0; background: none;
+  cursor: pointer; text-align: left; border-radius: 10px;
+}
+.item-lista + .item-lista { border-top: 1px solid var(--borda); border-radius: 0; }
+.item-lista:hover { background: var(--superficie-2); }
+.item-lista .nome { flex: 1; min-width: 0; }
+.item-lista .nome small { display: block; color: var(--texto-3); font-size: 12.5px; margin-top: 2px; }
+.item-lista .valor { font-weight: 600; white-space: nowrap; }
+.campo .campo-valor input, .campo .campo-valor input:focus { border: 0; border-radius: 0; height: 100%; outline: none; }
+.campo-valor .sinal { flex: none; } .campo-valor input { min-width: 0; }

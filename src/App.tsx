@@ -6,6 +6,8 @@ import Home from './paginas/Home'
 import Aparencia from './paginas/Aparencia'
 import MinhaConta from './paginas/MinhaConta'
 import EmBreve from './paginas/EmBreve'
+import Contas from './paginas/Contas'
+import ContaForm from './paginas/ContaForm'
 
 function Rotas() {
   const { sessao, carregando, recuperandoSenha } = useAuth()
@@ -32,7 +34,9 @@ function Rotas() {
         <Route path="novo/transferencia" element={<EmBreve titulo="Nova transferência" quando="na entrega 3" />} />
         <Route path="novo/despesa-cartao" element={<EmBreve titulo="Nova despesa de cartão" quando="na entrega 6" />} />
         <Route path="categorias" element={<EmBreve titulo="Categorias" quando="na entrega 2" />} />
-        <Route path="contas" element={<EmBreve titulo="Contas bancárias" quando="na entrega 2" />} />
+        <Route path="contas" element={<Contas />} />
+        <Route path="contas/nova" element={<ContaForm />} />
+        <Route path="contas/:id" element={<ContaForm />} />
         <Route path="cartoes" element={<EmBreve titulo="Cartões de crédito" quando="na entrega 2" />} />
         <Route path="tags" element={<EmBreve titulo="Tags" quando="na entrega 2" />} />
         <Route path="aparencia" element={<Aparencia />} />
