@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { IconArrowLeft, IconRepeat } from '@tabler/icons-react'
+import { IconArrowLeft, IconRepeat, IconChevronDown } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
 import CampoValor from '../componentes/CampoValor'
 import SeletorTags from '../componentes/SeletorTags'
 import EscolhaEscopo from '../componentes/EscolhaEscopo'
+import Anexos from '../componentes/Anexos'
+import { enviarAnexo } from '../lib/anexos'
 import { supabase } from '../lib/supabase'
 import { hojeIso, dataBr } from '../lib/datas'
 import { reais } from '../lib/formato'
@@ -28,7 +30,9 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
   const [descricao, setDescricao] = useState('')
   const [dataLanc, setDataLanc] = useState(hojeIso())
   const [dataVenc, setDataVenc] = useState(hojeIso())
-  const [vencIgual, setVencIgual] = useState(true)   // vencimento acompanha a data do lançamento até ser mudado
+  const [lancIgual, setLancIgual] = useState(true)   // data do lançamento acompanha o vencimento até ser mudada
+  const [maisOpcoes, setMaisOpcoes] = useState(false)
+  const [pendentes, setPendentes] = useState<File[]>([])
   const [efetivado, setEfetivado] = useState(false)
   const [dataEfet, setDataEfet] = useState(hojeIso())
   const [categorias, setCategorias] = useState<CategoriaComSubs[]>([])
@@ -73,7 +77,8 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
     if (!id) return
     buscarLancamento(id).then(l => {
       setOriginal(l); setTipo(l.tipo); setValor(l.valor); setDescricao(l.descricao)
-      setDataLanc(l.data_lancamento ?? l.data_vencimento); setDataVenc(l.data_vencimento); setVencIgual(false)
+      setDataLanc(l.data_lancamento ?? l.data_vencimento); setDataVenc(l.data_vencimento); setLancIgual(false)
+      if (l.data_lancamento && l.data_lancamento !== l.data_vencimento) setMaisOpcoes(true)
       setEfetivado(l.efetivado); setDataEfet(l.data_efetivacao ?? hojeIso())
       setContaId(l.conta_id ?? ''); setTags(l.tags ?? []); setObservacao(l.observacao ?? '')
       setCarregando(false)
@@ -93,9 +98,9 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
     [categorias, catId, subId]
   )
 
-  function mudarDataLanc(v: string) {
-    setDataLanc(v)
-    if (vencIgual) setDataVenc(v)
+  function mudarVencimento(v: string) {
+    setDataVenc(v)
+    if (lancIgual) setDataLanc(v)
   }
 
   function marcarEfetivado(v: boolean) {
@@ -148,13 +153,16 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
     setEscopoPara(null); setSalvando(true)
     try {
       if (novo) {
-        await criarLancamento(dados(), { frequencia, parcelas: nParcelas, termino, quantidade, dataFim })
+        const ids = await criarLancamento(dados(), { frequencia, parcelas: nParcelas, termino, quantidade, dataFim })
         try { localStorage.setItem(CHAVE_CONTA, contaId) } catch { /* sem armazenamento */ }
+        // Os anexos ficam no primeiro lançamento da série.
+        try { for (const f of pendentes) await enviarAnexo(ids[0], f) }
+        catch { window.alert('O lançamento foi salvo, mas algum anexo não foi enviado. Abra o lançamento e anexe de novo.') }
       } else {
         await atualizarLancamento(original!, dados(), escopo)
       }
       if (novo && continuar) {
-        setValor(0); setDescricao(''); setTags([]); setObservacao(''); setEfetivado(false); setFrequencia('nenhuma')
+        setValor(0); setDescricao(''); setTags([]); setObservacao(''); setEfetivado(false); setFrequencia('nenhuma'); setPendentes([])
         setAviso(`${ehReceita ? 'Receita' : 'Despesa'} salva. Pode lançar a próxima.`)
         setSalvando(false)
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -203,18 +211,10 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
                   placeholder={ehReceita ? 'Ex.: Salário de novembro' : 'Ex.: Conta de luz'} />
               </div>
 
-              <div className="duas-colunas">
-                <div className="campo">
-                  <label htmlFor="dataLanc">Data do lançamento</label>
-                  <input id="dataLanc" type="date" value={dataLanc} onChange={e => mudarDataLanc(e.target.value)} required />
-                </div>
-                <div className="campo">
-                  <label htmlFor="dataVenc">{novo && frequencia !== 'nenhuma' ? '1º vencimento' : 'Vencimento'}</label>
-                  <input id="dataVenc" type="date" value={dataVenc}
-                    onChange={e => { setDataVenc(e.target.value); setVencIgual(false) }} required />
-                </div>
+              <div className="campo">
+                <label htmlFor="dataVenc">{novo && frequencia !== 'nenhuma' ? '1º vencimento' : 'Vencimento'}</label>
+                <input id="dataVenc" type="date" value={dataVenc} onChange={e => mudarVencimento(e.target.value)} required />
               </div>
-              <small className="ajuda">A data do lançamento pode ser no passado. O vencimento define em que mês o valor aparece.</small>
 
               <label className="interruptor linha-interruptor">
                 <span>{palavraEfetivado}</span>
@@ -329,6 +329,30 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
                 <label htmlFor="obs">Observação</label>
                 <textarea id="obs" rows={2} value={observacao} onChange={e => setObservacao(e.target.value)} maxLength={500} />
               </div>
+            </section>
+
+            <section className="cartao formulario">
+              <div className="campo">
+                <label>Anexos</label>
+                <Anexos lancamentoId={original?.id} pendentes={pendentes} onPendentes={setPendentes} />
+              </div>
+            </section>
+
+            <section className="cartao mais-opcoes">
+              <button type="button" className="mais-opcoes-botao" aria-expanded={maisOpcoes} onClick={() => setMaisOpcoes(m => !m)}>
+                <span>{maisOpcoes ? 'Menos opções' : 'Ver mais opções'}</span>
+                <IconChevronDown size={18} style={{ transform: maisOpcoes ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />
+              </button>
+              {maisOpcoes && (
+                <div className="formulario" style={{ paddingTop: 12 }}>
+                  <div className="campo">
+                    <label htmlFor="dataLanc">Data do lançamento</label>
+                    <input id="dataLanc" type="date" value={dataLanc}
+                      onChange={e => { setDataLanc(e.target.value); setLancIgual(false) }} required />
+                    <small className="ajuda">Quando aconteceu (compra, serviço, venda). Pode ser no passado, para lançamentos retroativos. Se não mudar, fica igual ao vencimento.</small>
+                  </div>
+                </div>
+              )}
             </section>
 
             {erro && <p className="erro">{erro}</p>}

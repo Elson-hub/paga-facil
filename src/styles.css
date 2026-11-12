@@ -406,3 +406,15 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .duas-colunas .campo { min-width: 0; }
 .campo select:disabled { opacity: .6; }
+
+/* ---------- Anexos e "ver mais opções" ---------- */
+.anexos { display: flex; flex-direction: column; gap: 8px; }
+.anexo { display: flex; align-items: center; gap: 6px; border: 1px solid var(--borda); border-radius: 10px; padding: 6px; }
+.anexo-abrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.anexo-abrir img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; flex: none; background: var(--superficie-2); }
+.anexo-icone { width: 48px; height: 48px; border-radius: 8px; background: var(--superficie-2); display: flex; align-items: center; justify-content: center; color: var(--despesa); flex: none; }
+.anexo-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.anexo-nome small { display: block; color: var(--texto-3); font-size: 12px; }
+.mais-opcoes { padding: 4px 18px; }
+.mais-opcoes-botao { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 0; border: 0; background: none; cursor: pointer; color: var(--principal); font-weight: 500; }
+.mais-opcoes .formulario { padding-bottom: 14px; }

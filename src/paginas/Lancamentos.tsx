@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { IconChevronLeft, IconChevronRight, IconCircle, IconCircleCheckFilled, IconRepeat, IconReceipt } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconCircle, IconCircleCheckFilled, IconRepeat, IconReceipt, IconPaperclip } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
 import BotaoMais from '../componentes/BotaoMais'
 import { supabase } from '../lib/supabase'
 import { reais, nomeDoMes, somarMeses } from '../lib/formato'
 import { paraIso, hojeIso, diaAmigavel } from '../lib/datas'
 import { IconeCategoria } from '../lib/categorias'
+import { lancamentosComAnexo } from '../lib/anexos'
 import { listarDoMes, alternarEfetivado, estenderRecorrencias, rotuloRecorrencia, type Lancamento } from '../lib/lancamentos'
 
 type FiltroTipo = 'todos' | 'receita' | 'despesa'
@@ -30,6 +31,7 @@ export default function Lancamentos() {
   const [categorias, setCategorias] = useState<Map<string, InfoCategoria>>(new Map())
   const [contas, setContas] = useState<Map<string, string>>(new Map())
   const [erro, setErro] = useState('')
+  const [comAnexo, setComAnexo] = useState<Set<string>>(new Set())
 
   const mudar = (novos: Record<string, string>) => {
     const p = new URLSearchParams(parametros)
@@ -55,7 +57,9 @@ export default function Lancamentos() {
     setErro('')
     try {
       await estenderRecorrencias()
-      setLista(await listarDoMes(paraIso(mes), paraIso(somarMeses(mes, 1))))
+      const l = await listarDoMes(paraIso(mes), paraIso(somarMeses(mes, 1)))
+      setLista(l)
+      lancamentosComAnexo(l.map(x => x.id)).then(setComAnexo).catch(() => {})
     } catch { setErro('Não foi possível carregar os lançamentos.') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveMes])
@@ -136,6 +140,7 @@ export default function Lancamentos() {
                 const cat = l.categoria_id ? categorias.get(l.categoria_id) : undefined
                 const atrasado = !l.efetivado && l.data_vencimento < hoje
                 const rec = rotuloRecorrencia(l)
+                const anexo = comAnexo.has(l.id)
                 return (
                   <div key={l.id} className="item-lanc">
                     <button className="item-lista" onClick={() => ir(`/lancamentos/${l.id}`)}>
@@ -146,9 +151,10 @@ export default function Lancamentos() {
                           {cat ? (cat.principal ? `${cat.principal} › ${cat.nome}` : cat.nome) : 'Sem categoria'}
                           {l.conta_id && contas.get(l.conta_id) ? ` · ${contas.get(l.conta_id)}` : ''}
                         </small>
-                        {(rec || atrasado) && (
+                        {(rec || atrasado || anexo) && (
                           <span className="marcadores">
                             {rec && <span className="marcador"><IconRepeat size={12} />{rec}</span>}
+                            {anexo && <span className="marcador"><IconPaperclip size={12} />Anexo</span>}
                             {atrasado && <span className="marcador atrasado">Atrasada</span>}
                           </span>
                         )}

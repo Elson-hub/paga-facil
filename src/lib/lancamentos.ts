@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { dataNoMes, deIso, paraIso, hojeIso } from './datas'
+import { apagarArquivosDos } from './anexos'
 
 export type TipoLancamento = 'receita' | 'despesa'
 export type Frequencia = 'nenhuma' | 'semanal' | 'mensal' | 'anual' | 'parcelado'
@@ -93,7 +94,8 @@ async function gravarTags(ids: string[], tags: string[]) {
 }
 
 /** Cria um lançamento (e todas as ocorrências, se for recorrente ou parcelado). */
-export async function criarLancamento(d: DadosLancamento, r: Recorrencia) {
+/** Cria e devolve os ids, em ordem (o primeiro é o lançamento informado). */
+export async function criarLancamento(d: DadosLancamento, r: Recorrencia): Promise<string[]> {
   let recorrenciaId: string | null = null
   if (r.frequencia !== 'nenhuma') {
     const { data, error } = await supabase.from('recorrencias').insert({
@@ -131,9 +133,11 @@ export async function criarLancamento(d: DadosLancamento, r: Recorrencia) {
     parcela_numero: r.frequencia === 'parcelado' ? i + 1 : null,
     observacao: d.observacao || null
   }))
-  const { data: criados, error } = await supabase.from('lancamentos').insert(linhas).select('id')
+  const { data: criados, error } = await supabase.from('lancamentos').insert(linhas).select('id, data_vencimento')
   if (error) throw error
-  await gravarTags((criados ?? []).map(c => c.id), d.tags)
+  const ids = [...(criados ?? [])].sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento)).map(c => c.id)
+  await gravarTags(ids, d.tags)
+  return ids
 }
 
 /** Ids afetados por uma edição/exclusão conforme o escopo escolhido. */
@@ -166,6 +170,7 @@ export async function atualizarLancamento(original: Lancamento, d: DadosLancamen
 /** Exclui conforme o escopo. Ao excluir "este e os próximos", a recorrência para de gerar novos. */
 export async function excluirLancamento(l: Lancamento, escopo: Escopo) {
   const ids = await idsDoEscopo(l, escopo)
+  await apagarArquivosDos(ids)
   const { error } = await supabase.from('lancamentos').delete().in('id', ids)
   if (error) throw error
   if (!l.recorrencia_id || escopo === 'este') return
