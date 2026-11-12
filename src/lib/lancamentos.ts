@@ -18,6 +18,7 @@ export interface DadosLancamento {
   tipo: TipoLancamento
   descricao: string
   valor: number             // no parcelado, é o valor TOTAL
+  data_lancamento: string
   data_vencimento: string
   efetivado: boolean
   data_efetivacao: string | null
@@ -32,6 +33,7 @@ export interface Lancamento {
   tipo: TipoLancamento
   descricao: string
   valor: number
+  data_lancamento: string
   data_vencimento: string
   efetivado: boolean
   data_efetivacao: string | null
@@ -107,10 +109,18 @@ export async function criarLancamento(d: DadosLancamento, r: Recorrencia) {
 
   const datas = datasDaRecorrencia(d.data_vencimento, r)
   const valores = r.frequencia === 'parcelado' ? dividirParcelas(d.valor, r.parcelas) : datas.map(() => d.valor)
+  // Parcelado: todas as parcelas têm a data da compra. Recorrente: cada
+  // ocorrência mantém a mesma distância entre lançamento e vencimento.
+  const distancia = Math.round((deIso(d.data_vencimento).getTime() - deIso(d.data_lancamento).getTime()) / 864e5)
+  const lancDe = (venc: string) => {
+    if (r.frequencia === 'parcelado') return d.data_lancamento
+    const x = deIso(venc); x.setDate(x.getDate() - distancia); return paraIso(x)
+  }
   const linhas = datas.map((data, i) => ({
     tipo: d.tipo,
     descricao: d.descricao,
     valor: valores[i],
+    data_lancamento: i === 0 ? d.data_lancamento : lancDe(data),
     data_vencimento: data,
     // Só a primeira ocorrência pode já nascer efetivada.
     efetivado: i === 0 ? d.efetivado : false,
@@ -146,7 +156,7 @@ export async function atualizarLancamento(original: Lancamento, d: DadosLancamen
   const r1 = await supabase.from('lancamentos').update(comum).in('id', ids)
   if (r1.error) throw r1.error
   const r2 = await supabase.from('lancamentos').update({
-    data_vencimento: d.data_vencimento, efetivado: d.efetivado,
+    data_lancamento: d.data_lancamento, data_vencimento: d.data_vencimento, efetivado: d.efetivado,
     data_efetivacao: d.efetivado ? d.data_efetivacao : null
   }).eq('id', original.id)
   if (r2.error) throw r2.error
@@ -178,7 +188,7 @@ export async function alternarEfetivado(l: Pick<Lancamento, 'id' | 'efetivado' |
   if (error) throw error
 }
 
-const CAMPOS = 'id, tipo, descricao, valor, data_vencimento, efetivado, data_efetivacao, categoria_id, conta_id, recorrencia_id, parcela_numero, observacao, recorrencia:recorrencias(frequencia, total_parcelas, data_fim, quantidade)'
+const CAMPOS = 'id, tipo, descricao, valor, data_lancamento, data_vencimento, efetivado, data_efetivacao, categoria_id, conta_id, recorrencia_id, parcela_numero, observacao, recorrencia:recorrencias(frequencia, total_parcelas, data_fim, quantidade)'
 
 export async function buscarLancamento(id: string): Promise<Lancamento> {
   const [{ data, error }, tags] = await Promise.all([
@@ -217,7 +227,7 @@ export function estenderRecorrencias(): Promise<void> {
       if (!novas.length) continue
       const { data: tags } = await supabase.from('lancamento_tags').select('tag_id').eq('lancamento_id', ultimo.id)
       const { data: criados } = await supabase.from('lancamentos').insert(novas.map(d => ({
-        tipo: ultimo.tipo, descricao: ultimo.descricao, valor: ultimo.valor, data_vencimento: d,
+        tipo: ultimo.tipo, descricao: ultimo.descricao, valor: ultimo.valor, data_lancamento: d, data_vencimento: d,
         efetivado: false, categoria_id: ultimo.categoria_id, conta_id: ultimo.conta_id,
         recorrencia_id: r.id, observacao: ultimo.observacao
       }))).select('id')

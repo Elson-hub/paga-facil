@@ -401,3 +401,8 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .marcador { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--texto-2); background: var(--superficie-2); padding: 2px 7px; border-radius: 999px; }
 .marcador.atrasado { color: var(--despesa); background: color-mix(in srgb, var(--despesa) 12%, transparent); }
 .check-efetivar { border: 0; background: none; cursor: pointer; padding: 8px 10px 8px 2px; display: flex; }
+.cabecalho-lanc { padding-bottom: 0; }
+.cabecalho-lanc .selo-rec { padding-bottom: 12px; margin-top: 0; }
+.duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.duas-colunas .campo { min-width: 0; }
+.campo select:disabled { opacity: .6; }

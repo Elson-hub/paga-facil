@@ -1,39 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconRepeat } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
-import SeletorCategoria from '../componentes/SeletorCategoria'
+import CampoValor from '../componentes/CampoValor'
 import SeletorTags from '../componentes/SeletorTags'
 import EscolhaEscopo from '../componentes/EscolhaEscopo'
 import { supabase } from '../lib/supabase'
 import { hojeIso, dataBr } from '../lib/datas'
 import { reais } from '../lib/formato'
+import { listarCategorias, type CategoriaComSubs } from '../lib/categorias'
 import {
   criarLancamento, atualizarLancamento, excluirLancamento, buscarLancamento, dividirParcelas, rotuloRecorrencia,
   type TipoLancamento, type Frequencia, type Termino, type Lancamento, type DadosLancamento, type Escopo
 } from '../lib/lancamentos'
 
-const fmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const CHAVE_CONTA = 'pagafacil.ultimaConta'
-
-/** Valor em destaque no topo, digitado como calculadora. */
-function ValorGrande({ valor, onChange }: { valor: number; onChange: (v: number) => void }) {
-  const ref = useRef<HTMLInputElement>(null)
-  const texto = fmt.format(valor)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (el && document.activeElement === el) el.setSelectionRange(texto.length, texto.length)
-  }, [texto])
-  return (
-    <div className="valor-grande">
-      <span>R$</span>
-      <input ref={ref} inputMode="numeric" aria-label="Valor" value={texto}
-        onChange={e => onChange(Number(e.target.value.replace(/\D/g, '').slice(0, 12) || '0') / 100)}
-        onFocus={e => { const el = e.target; requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length)) }}
-        onClick={e => { const el = e.currentTarget; el.setSelectionRange(el.value.length, el.value.length) }} />
-    </div>
-  )
-}
+type ModoValor = 'total' | 'parcela'
 
 export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento }) {
   const { id } = useParams()
@@ -44,15 +26,20 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
   const [tipo, setTipo] = useState<TipoLancamento>(tipoNovo ?? 'despesa')
   const [valor, setValor] = useState(0)
   const [descricao, setDescricao] = useState('')
-  const [data, setData] = useState(hojeIso())
+  const [dataLanc, setDataLanc] = useState(hojeIso())
+  const [dataVenc, setDataVenc] = useState(hojeIso())
+  const [vencIgual, setVencIgual] = useState(true)   // vencimento acompanha a data do lançamento até ser mudado
   const [efetivado, setEfetivado] = useState(false)
   const [dataEfet, setDataEfet] = useState(hojeIso())
-  const [categoriaId, setCategoriaId] = useState<string | null>(null)
+  const [categorias, setCategorias] = useState<CategoriaComSubs[]>([])
+  const [catId, setCatId] = useState('')
+  const [subId, setSubId] = useState('')
   const [contaId, setContaId] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [observacao, setObservacao] = useState('')
   const [frequencia, setFrequencia] = useState<Frequencia>('nenhuma')
   const [parcelas, setParcelas] = useState(2)
+  const [modoValor, setModoValor] = useState<ModoValor>('total')
   const [termino, setTermino] = useState<Termino>('nunca')
   const [quantidade, setQuantidade] = useState(12)
   const [dataFim, setDataFim] = useState('')
@@ -68,6 +55,10 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
   useEffect(() => { if (tipoNovo) setTipo(tipoNovo) }, [tipoNovo])
 
   useEffect(() => {
+    listarCategorias(tipo).then(l => setCategorias(l.filter(c => c.ativa))).catch(() => setCategorias([]))
+  }, [tipo])
+
+  useEffect(() => {
     supabase.from('contas').select('id, descricao').eq('ativa', true).order('descricao').then(({ data: c }) => {
       setContas(c ?? [])
       if (novo && c?.length) {
@@ -81,27 +72,51 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
   useEffect(() => {
     if (!id) return
     buscarLancamento(id).then(l => {
-      setOriginal(l); setTipo(l.tipo); setValor(l.valor); setDescricao(l.descricao); setData(l.data_vencimento)
-      setEfetivado(l.efetivado); setDataEfet(l.data_efetivacao ?? hojeIso()); setCategoriaId(l.categoria_id)
+      setOriginal(l); setTipo(l.tipo); setValor(l.valor); setDescricao(l.descricao)
+      setDataLanc(l.data_lancamento ?? l.data_vencimento); setDataVenc(l.data_vencimento); setVencIgual(false)
+      setEfetivado(l.efetivado); setDataEfet(l.data_efetivacao ?? hojeIso())
       setContaId(l.conta_id ?? ''); setTags(l.tags ?? []); setObservacao(l.observacao ?? '')
       setCarregando(false)
     }).catch(() => { setErro('Lançamento não encontrado.'); setCarregando(false) })
   }, [id])
 
-  // Ao marcar como efetivado, sugere a data do vencimento (se já passou) ou hoje.
+  // Ao editar: separa a categoria gravada em principal + subcategoria.
+  useEffect(() => {
+    if (!original?.categoria_id || !categorias.length) return
+    const alvo = original.categoria_id
+    const principal = categorias.find(c => c.id === alvo || c.subcategorias.some(s => s.id === alvo))
+    if (principal) { setCatId(principal.id); setSubId(principal.id === alvo ? '' : alvo) }
+  }, [original, categorias])
+
+  const subcategorias = useMemo(
+    () => categorias.find(c => c.id === catId)?.subcategorias.filter(s => s.ativa || s.id === subId) ?? [],
+    [categorias, catId, subId]
+  )
+
+  function mudarDataLanc(v: string) {
+    setDataLanc(v)
+    if (vencIgual) setDataVenc(v)
+  }
+
   function marcarEfetivado(v: boolean) {
     setEfetivado(v)
-    if (v) setDataEfet(data < hojeIso() ? data : hojeIso())
+    if (v) setDataEfet(dataVenc < hojeIso() ? dataVenc : hojeIso())
   }
 
   const recorrente = !!original?.recorrencia_id
   const ehReceita = tipo === 'receita'
   const palavraEfetivado = ehReceita ? 'Recebida' : 'Paga'
+  const parcelado = novo && frequencia === 'parcelado'
+  const nParcelas = Math.max(2, Math.min(120, parcelas || 2))
+  const valorTotal = parcelado && modoValor === 'parcela' ? Math.round(valor * nParcelas * 100) / 100 : valor
+  const valoresParcelas = parcelado && valor > 0 ? dividirParcelas(valorTotal, nParcelas) : []
 
   function dados(): DadosLancamento {
     return {
-      tipo, descricao: descricao.trim(), valor, data_vencimento: data, efetivado,
-      data_efetivacao: efetivado ? dataEfet : null, categoria_id: categoriaId, conta_id: contaId,
+      tipo, descricao: descricao.trim(), valor: valorTotal,
+      data_lancamento: dataLanc, data_vencimento: dataVenc, efetivado,
+      data_efetivacao: efetivado ? dataEfet : null,
+      categoria_id: subId || catId || null, conta_id: contaId,
       observacao: observacao.trim(), tags
     }
   }
@@ -109,12 +124,13 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
   function validar() {
     if (valor <= 0) return 'Informe o valor.'
     if (!descricao.trim()) return 'Informe a descrição.'
-    if (!categoriaId) return 'Escolha a categoria.'
+    if (!dataLanc || !dataVenc) return 'Informe as datas.'
+    if (!catId) return 'Escolha a categoria.'
     if (!contaId) return 'Escolha a conta.'
-    if (frequencia === 'parcelado' && (parcelas < 2 || parcelas > 120)) return 'O número de parcelas deve ficar entre 2 e 120.'
-    if (novo && frequencia !== 'nenhuma' && frequencia !== 'parcelado') {
+    if (parcelado && (parcelas < 2 || parcelas > 120)) return 'O número de parcelas deve ficar entre 2 e 120.'
+    if (novo && (frequencia === 'mensal' || frequencia === 'semanal' || frequencia === 'anual')) {
       if (termino === 'quantidade' && (quantidade < 2 || quantidade > 500)) return 'Informe quantas vezes repete (2 a 500).'
-      if (termino === 'data' && (!dataFim || dataFim <= data)) return 'A data final deve ser depois da primeira data.'
+      if (termino === 'data' && (!dataFim || dataFim <= dataVenc)) return 'A data final deve ser depois do primeiro vencimento.'
     }
     return ''
   }
@@ -132,7 +148,7 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
     setEscopoPara(null); setSalvando(true)
     try {
       if (novo) {
-        await criarLancamento(dados(), { frequencia, parcelas, termino, quantidade, dataFim })
+        await criarLancamento(dados(), { frequencia, parcelas: nParcelas, termino, quantidade, dataFim })
         try { localStorage.setItem(CHAVE_CONTA, contaId) } catch { /* sem armazenamento */ }
       } else {
         await atualizarLancamento(original!, dados(), escopo)
@@ -161,13 +177,12 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
 
   const voltar = <button type="button" className="icone-btn" aria-label="Voltar" onClick={() => ir(-1)}><IconArrowLeft size={22} /></button>
   const titulo = novo ? (ehReceita ? 'Nova receita' : 'Nova despesa') : (ehReceita ? 'Editar receita' : 'Editar despesa')
-  const valoresParcelas = frequencia === 'parcelado' && valor > 0 ? dividirParcelas(valor, Math.max(2, parcelas)) : []
+  const rotuloValor = parcelado ? (modoValor === 'parcela' ? 'Valor da parcela' : 'Valor total') : 'Valor'
 
   return (
     <>
       <div className={`cabecalho-lanc ${tipo}`}>
         <Topo titulo={titulo} esquerda={voltar} />
-        <ValorGrande valor={valor} onChange={v => { setValor(v); setAviso('') }} />
         {original && recorrente && <div className="selo-rec"><IconRepeat size={14} />{rotuloRecorrencia(original)}</div>}
       </div>
 
@@ -175,22 +190,31 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
         {carregando ? <p className="aviso">Carregando…</p> : (
           <form className="formulario" onSubmit={salvar}>
             {aviso && <p className="sucesso caixa-aviso">{aviso}</p>}
-
             {contas && contas.length === 0 && (
               <p className="erro caixa-aviso">Você ainda não tem conta cadastrada. <Link to="/contas/nova">Cadastrar conta</Link></p>
             )}
 
             <section className="cartao formulario">
+              <CampoValor id="valor" rotulo={rotuloValor} valor={valor} onChange={v => { setValor(v); setAviso('') }} />
+
               <div className="campo">
                 <label htmlFor="descricao">Descrição</label>
                 <input id="descricao" value={descricao} onChange={e => setDescricao(e.target.value)} maxLength={80}
                   placeholder={ehReceita ? 'Ex.: Salário de novembro' : 'Ex.: Conta de luz'} />
               </div>
 
-              <div className="campo">
-                <label htmlFor="data">{novo && frequencia !== 'nenhuma' ? 'Data da primeira' : 'Data de vencimento'}</label>
-                <input id="data" type="date" value={data} onChange={e => setData(e.target.value)} required />
+              <div className="duas-colunas">
+                <div className="campo">
+                  <label htmlFor="dataLanc">Data do lançamento</label>
+                  <input id="dataLanc" type="date" value={dataLanc} onChange={e => mudarDataLanc(e.target.value)} required />
+                </div>
+                <div className="campo">
+                  <label htmlFor="dataVenc">{novo && frequencia !== 'nenhuma' ? '1º vencimento' : 'Vencimento'}</label>
+                  <input id="dataVenc" type="date" value={dataVenc}
+                    onChange={e => { setDataVenc(e.target.value); setVencIgual(false) }} required />
+                </div>
               </div>
+              <small className="ajuda">A data do lançamento pode ser no passado. O vencimento define em que mês o valor aparece.</small>
 
               <label className="interruptor linha-interruptor">
                 <span>{palavraEfetivado}</span>
@@ -206,8 +230,18 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
 
             <section className="cartao formulario">
               <div className="campo">
-                <label>Categoria</label>
-                <SeletorCategoria tipo={tipo} valor={categoriaId} onChange={setCategoriaId} />
+                <label htmlFor="categoria">Categoria</label>
+                <select id="categoria" value={catId} onChange={e => { setCatId(e.target.value); setSubId('') }}>
+                  <option value="">Escolher categoria</option>
+                  {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </div>
+              <div className="campo">
+                <label htmlFor="subcategoria">Subcategoria</label>
+                <select id="subcategoria" value={subId} onChange={e => setSubId(e.target.value)} disabled={!catId || subcategorias.length === 0}>
+                  <option value="">{!catId ? 'Escolha a categoria primeiro' : subcategorias.length === 0 ? 'Esta categoria não tem subcategorias' : 'Nenhuma (opcional)'}</option>
+                  {subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                </select>
               </div>
               <div className="campo">
                 <label htmlFor="conta">Conta</label>
@@ -238,11 +272,20 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
                       <input id="parcelas" type="number" inputMode="numeric" min={2} max={120} value={parcelas}
                         onChange={e => setParcelas(Number(e.target.value))} />
                     </div>
+                    <div className="campo">
+                      <label>O valor informado é</label>
+                      <div className="segmentos" role="radiogroup" aria-label="O valor informado é">
+                        <button type="button" role="radio" aria-checked={modoValor === 'total'} className={modoValor === 'total' ? 'ativo' : ''}
+                          onClick={() => setModoValor('total')}>Valor total</button>
+                        <button type="button" role="radio" aria-checked={modoValor === 'parcela'} className={modoValor === 'parcela' ? 'ativo' : ''}
+                          onClick={() => setModoValor('parcela')}>Valor da parcela</button>
+                      </div>
+                    </div>
                     {valoresParcelas.length > 0 && (
                       <p className="destaque-info">
-                        <b>{parcelas}x de {reais(valoresParcelas[valoresParcelas.length - 1])}</b>
+                        <b>{nParcelas}x de {reais(valoresParcelas[valoresParcelas.length - 1])}</b>
                         {valoresParcelas[0] !== valoresParcelas[valoresParcelas.length - 1] && <> (a 1ª de {reais(valoresParcelas[0])})</>}
-                        {' '}— o valor acima é o total.
+                        {' '}= total de <b>{reais(valorTotal)}</b>
                       </p>
                     )}
                   </>
@@ -267,8 +310,8 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
                     )}
                     {termino === 'data' && (
                       <div className="campo">
-                        <label htmlFor="fim">Última data</label>
-                        <input id="fim" type="date" value={dataFim} min={data} onChange={e => setDataFim(e.target.value)} />
+                        <label htmlFor="fim">Último vencimento</label>
+                        <input id="fim" type="date" value={dataFim} min={dataVenc} onChange={e => setDataFim(e.target.value)} />
                       </div>
                     )}
                     {termino === 'nunca' && <small className="ajuda">O app mantém sempre os próximos 12 meses lançados.</small>}
