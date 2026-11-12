@@ -1,0 +1,56 @@
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider, useAuth } from './lib/auth'
+import Layout from './componentes/Layout'
+import { Entrar, CriarConta, EsqueciSenha, NovaSenha } from './paginas/Entrada'
+import Home from './paginas/Home'
+import Aparencia from './paginas/Aparencia'
+import MinhaConta from './paginas/MinhaConta'
+import EmBreve from './paginas/EmBreve'
+
+function Rotas() {
+  const { sessao, carregando, recuperandoSenha } = useAuth()
+
+  if (carregando) return <div className="carregando">Carregando…</div>
+
+  if (recuperandoSenha) return <NovaSenha />
+
+  if (!sessao) return (
+    <Routes>
+      <Route path="/criar-conta" element={<CriarConta />} />
+      <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+      <Route path="*" element={<Entrar />} />
+    </Routes>
+  )
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="lancamentos" element={<EmBreve titulo="Lançamentos" quando="na entrega 3" />} />
+        <Route path="novo/receita" element={<EmBreve titulo="Nova receita" quando="na entrega 3" />} />
+        <Route path="novo/despesa" element={<EmBreve titulo="Nova despesa" quando="na entrega 3" />} />
+        <Route path="novo/transferencia" element={<EmBreve titulo="Nova transferência" quando="na entrega 3" />} />
+        <Route path="novo/despesa-cartao" element={<EmBreve titulo="Nova despesa de cartão" quando="na entrega 6" />} />
+        <Route path="categorias" element={<EmBreve titulo="Categorias" quando="na entrega 2" />} />
+        <Route path="contas" element={<EmBreve titulo="Contas bancárias" quando="na entrega 2" />} />
+        <Route path="cartoes" element={<EmBreve titulo="Cartões de crédito" quando="na entrega 2" />} />
+        <Route path="tags" element={<EmBreve titulo="Tags" quando="na entrega 2" />} />
+        <Route path="aparencia" element={<Aparencia />} />
+        <Route path="backup" element={<EmBreve titulo="Backup" quando="na fase 2" />} />
+        <Route path="open-finance" element={<EmBreve titulo="Open Finance" quando="na fase 2" />} />
+        <Route path="minha-conta" element={<MinhaConta />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <HashRouter>
+        <Rotas />
+      </HashRouter>
+    </AuthProvider>
+  )
+}
