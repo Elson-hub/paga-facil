@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { IconPlus, IconChevronDown, IconChevronRight, IconCategory } from '@tabler/icons-react'
+import { IconPlus, IconChevronRight, IconCategory } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
 import { listarCategorias, IconeCategoria, type CategoriaComSubs, type TipoCategoria } from '../lib/categorias'
 
@@ -9,7 +9,6 @@ export default function Categorias() {
   const tipo: TipoCategoria = parametros.get('tipo') === 'receita' ? 'receita' : 'despesa'
   const [lista, setLista] = useState<CategoriaComSubs[] | null>(null)
   const [erro, setErro] = useState('')
-  const [abertas, setAbertas] = useState<Set<string>>(new Set())
   const [verInativas, setVerInativas] = useState(false)
   const ir = useNavigate()
 
@@ -18,14 +17,8 @@ export default function Categorias() {
     listarCategorias(tipo).then(setLista).catch(() => setErro('Não foi possível carregar as categorias.'))
   }, [tipo])
 
-  const alternar = (id: string) => setAbertas(a => {
-    const n = new Set(a)
-    if (n.has(id)) n.delete(id); else n.add(id)
-    return n
-  })
-
   const visiveis = (lista ?? []).filter(c => verInativas || c.ativa)
-  const temInativas = (lista ?? []).some(c => !c.ativa || c.subcategorias.some(s => !s.ativa))
+  const temInativas = (lista ?? []).some(c => !c.ativa)
 
   return (
     <>
@@ -50,41 +43,20 @@ export default function Categorias() {
 
           <div className="lista">
             {visiveis.map(c => {
-              const subs = c.subcategorias.filter(s => verInativas || s.ativa)
-              const aberta = abertas.has(c.id)
+              const subs = c.subcategorias.filter(s => s.ativa)
               return (
-                <div key={c.id} className={`grupo-cat ${c.ativa ? '' : 'inativa'}`}>
-                  <div className="linha-cat">
-                    <button className="item-lista" onClick={() => ir(`/categorias/${c.id}`)}>
-                      <IconeCategoria icone={c.icone} cor={c.cor} />
-                      <span className="nome">{c.nome}
-                        <small>
-                          {subs.length === 0 ? 'Sem subcategorias' : `${subs.length} subcategoria${subs.length > 1 ? 's' : ''}`}
-                          {!c.ativa && ' · desativada'}
-                        </small>
+                <button key={c.id} className={`item-lista item-cat ${c.ativa ? '' : 'inativa'}`} onClick={() => ir(`/categorias/${c.id}`)}>
+                  <IconeCategoria icone={c.icone} cor={c.cor} />
+                  <span className="nome">
+                    {c.nome}{!c.ativa && <small style={{ display: 'inline' }}> · desativada</small>}
+                    {subs.length > 0 ? (
+                      <span className="chips">
+                        {subs.map(s => <span key={s.id} className="chip">{s.nome}</span>)}
                       </span>
-                    </button>
-                    <button className="icone-btn" aria-label={aberta ? 'Recolher subcategorias' : 'Ver subcategorias'}
-                      aria-expanded={aberta} onClick={() => alternar(c.id)}>
-                      {aberta ? <IconChevronDown size={20} /> : <IconChevronRight size={20} />}
-                    </button>
-                  </div>
-
-                  {aberta && (
-                    <div className="subs">
-                      {subs.map(s => (
-                        <button key={s.id} className={`item-sub ${s.ativa ? '' : 'inativa'}`} onClick={() => ir(`/categorias/${s.id}`)}>
-                          <span className="ponto" style={{ background: c.cor || '#888780' }} />
-                          <span className="nome">{s.nome}{!s.ativa && <small> · desativada</small>}</span>
-                          <IconChevronRight size={16} color="var(--texto-3)" />
-                        </button>
-                      ))}
-                      <button className="item-sub novo" onClick={() => ir(`/categorias/nova?tipo=${tipo}&pai=${c.id}`)}>
-                        <IconPlus size={16} />Nova subcategoria
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    ) : <small>Sem subcategorias</small>}
+                  </span>
+                  <IconChevronRight size={18} color="var(--texto-3)" />
+                </button>
               )
             })}
           </div>
