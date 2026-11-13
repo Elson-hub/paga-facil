@@ -46,7 +46,7 @@ export default function Cartoes() {
             const { fechamento, vencimento } = faturaDaData(c, new Date())
             const uso = c.limite > 0 ? Math.min(100, (c.usado / c.limite) * 100) : 0
             return (
-              <button key={c.id} className="cartao-credito" onClick={() => ir(`/cartoes/${c.id}`)}>
+              <button key={c.id} className="cartao-credito" onClick={() => ir(`/cartoes/${c.id}/fatura`)}>
                 <div className="cc-frente" style={{ background: c.cor || '#1F2933' }}>
                   <div className="cc-topo"><strong>{c.nome}</strong><span>{c.bandeira}</span></div>
                   <div className="cc-datas">

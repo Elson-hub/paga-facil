@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconChevronLeft, IconChevronRight, IconBuildingBank, IconPlus, IconMinus,
-  IconArrowsExchange, IconReceipt
+  IconArrowsExchange, IconReceipt, IconCreditCard
 } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
 import BotaoMais from '../componentes/BotaoMais'
@@ -16,6 +16,7 @@ interface Resumo {
   saldoPrevisto: number
   receitas: { feito: number; previsto: number; pendentes: number; totalPendente: number }
   despesas: { feito: number; previsto: number; pendentes: number; totalPendente: number }
+  faturas: { total: number; aberto: number }
   temContas: boolean
 }
 
@@ -30,12 +31,14 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
   const inicio = iso(mes)
   const fim = iso(somarMeses(mes, 1))
 
-  const [contas, efetivados, doMes] = await Promise.all([
+  const [contas, efetivados, doMes, cartao] = await Promise.all([
     supabase.from('contas').select('saldo_inicial').eq('ativa', true),
     supabase.from('lancamentos').select('tipo, valor, data_efetivacao')
       .eq('efetivado', true).in('tipo', ['receita', 'despesa']).lt('data_efetivacao', fim),
     supabase.from('lancamentos').select('tipo, valor, efetivado')
-      .in('tipo', ['receita', 'despesa']).gte('data_vencimento', inicio).lt('data_vencimento', fim)
+      .in('tipo', ['receita', 'despesa']).gte('data_vencimento', inicio).lt('data_vencimento', fim),
+    supabase.from('lancamentos').select('valor, fatura:faturas(situacao)')
+      .eq('tipo', 'despesa_cartao').gte('data_vencimento', inicio).lt('data_vencimento', fim)
   ])
 
   const somaContas = (contas.data ?? []).reduce((s, c) => s + Number(c.saldo_inicial), 0)
@@ -55,12 +58,19 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
     else { alvo.pendentes++; alvo.totalPendente += v }
   }
 
+  // Faturas de cartão que vencem no mês e ainda não foram pagas.
+  const faturas = { total: 0, aberto: 0 }
+  for (const l of (cartao.data ?? []) as { valor: number; fatura: { situacao: string } | null }[]) {
+    faturas.total += Number(l.valor)
+    if (l.fatura?.situacao !== 'paga') faturas.aberto += Number(l.valor)
+  }
+
   const saldoInicial = somaContas + antes
   const saldoAtual = saldoInicial + noMes
   return {
     saldoInicial, saldoAtual,
-    saldoPrevisto: saldoAtual + r.totalPendente - d.totalPendente,
-    receitas: r, despesas: d,
+    saldoPrevisto: saldoAtual + r.totalPendente - d.totalPendente - faturas.aberto,
+    receitas: r, despesas: d, faturas,
     temContas: (contas.data ?? []).length > 0
   }
 }
@@ -147,6 +157,11 @@ export default function Home() {
             <span className="bolinha" style={{ background: 'var(--despesa)' }}><IconMinus size={20} /></span>
             <span className="nome">Despesas<small>Previsto</small></span>
             <span className="valores">{reais(resumo?.despesas.feito ?? 0)}<small>{reais(resumo?.despesas.previsto ?? 0)}</small></span>
+          </div>
+          <div className="linha-resumo" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => ir('/cartoes')}>
+            <span className="bolinha" style={{ background: '#5B3FD1' }}><IconCreditCard size={20} /></span>
+            <span className="nome">Faturas de cartão<small>Em aberto</small></span>
+            <span className="valores">{reais(resumo?.faturas.total ?? 0)}<small>{reais(resumo?.faturas.aberto ?? 0)}</small></span>
           </div>
           <div className="linha-resumo">
             <span className="bolinha" style={{ background: '#E5A50A' }}><IconArrowsExchange size={20} /></span>

@@ -15,6 +15,8 @@ import CartaoForm from './paginas/CartaoForm'
 import Tags from './paginas/Tags'
 import Lancamentos from './paginas/Lancamentos'
 import LancamentoForm from './paginas/LancamentoForm'
+import CompraCartaoForm from './paginas/CompraCartaoForm'
+import Fatura from './paginas/Fatura'
 
 function Rotas() {
   const { sessao, carregando, recuperandoSenha } = useAuth()
@@ -40,7 +42,9 @@ function Rotas() {
         <Route path="novo/receita" element={<LancamentoForm key="receita" tipoNovo="receita" />} />
         <Route path="novo/despesa" element={<LancamentoForm key="despesa" tipoNovo="despesa" />} />
         <Route path="novo/transferencia" element={<EmBreve titulo="Nova transferência" quando="na entrega 3" />} />
-        <Route path="novo/despesa-cartao" element={<EmBreve titulo="Nova despesa de cartão" quando="na entrega 6" />} />
+        <Route path="novo/despesa-cartao" element={<CompraCartaoForm key="nova-compra" />} />
+        <Route path="compras/:id" element={<CompraCartaoForm key="editar-compra" />} />
+        <Route path="cartoes/:id/fatura" element={<Fatura />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="categorias/nova" element={<CategoriaForm />} />
         <Route path="categorias/:id" element={<CategoriaForm />} />

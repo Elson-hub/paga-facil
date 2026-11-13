@@ -40,6 +40,8 @@ export interface Lancamento {
   data_efetivacao: string | null
   categoria_id: string | null
   conta_id: string | null
+  cartao_id?: string | null
+  fatura_id?: string | null
   recorrencia_id: string | null
   parcela_numero: number | null
   observacao: string | null
@@ -193,7 +195,7 @@ export async function alternarEfetivado(l: Pick<Lancamento, 'id' | 'efetivado' |
   if (error) throw error
 }
 
-const CAMPOS = 'id, tipo, descricao, valor, data_lancamento, data_vencimento, efetivado, data_efetivacao, categoria_id, conta_id, recorrencia_id, parcela_numero, observacao, recorrencia:recorrencias(frequencia, total_parcelas, data_fim, quantidade)'
+const CAMPOS = 'id, tipo, descricao, valor, data_lancamento, data_vencimento, efetivado, data_efetivacao, categoria_id, conta_id, cartao_id, fatura_id, recorrencia_id, parcela_numero, observacao, recorrencia:recorrencias(frequencia, total_parcelas, data_fim, quantidade)'
 
 export async function buscarLancamento(id: string): Promise<Lancamento> {
   const [{ data, error }, tags] = await Promise.all([
@@ -224,9 +226,14 @@ export function estenderRecorrencias(): Promise<void> {
       .is('data_fim', null).is('quantidade', null).neq('frequencia', 'parcelado')
     for (const r of recs ?? []) {
       const { data: ultimo } = await supabase.from('lancamentos')
-        .select('id, tipo, descricao, valor, data_vencimento, categoria_id, conta_id, observacao')
+        .select('id, tipo, descricao, valor, data_lancamento, data_vencimento, categoria_id, conta_id, cartao_id, observacao')
         .eq('recorrencia_id', r.id).order('data_vencimento', { ascending: false }).limit(1).maybeSingle()
       if (!ultimo) continue
+      if (ultimo.tipo === 'despesa_cartao') {
+        const { estenderCompraMensal } = await import('./compras')
+        await estenderCompraMensal(r.id, r.data_inicio, ultimo)
+        continue
+      }
       const rec: Recorrencia = { frequencia: r.frequencia, parcelas: 0, termino: 'nunca', quantidade: 0, dataFim: '' }
       const novas = datasDaRecorrencia(r.data_inicio, rec).filter(d => d > ultimo.data_vencimento)
       if (!novas.length) continue
