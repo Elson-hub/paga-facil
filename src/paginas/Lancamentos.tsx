@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { IconChevronLeft, IconChevronRight, IconCircle, IconCircleCheckFilled, IconRepeat, IconReceipt, IconPaperclip } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconCircle, IconCircleCheckFilled, IconRepeat, IconReceipt, IconPaperclip, IconArrowsExchange } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
 import BotaoMais from '../componentes/BotaoMais'
 import { supabase } from '../lib/supabase'
@@ -8,6 +8,7 @@ import { reais, nomeDoMes, somarMeses } from '../lib/formato'
 import { paraIso, hojeIso, diaAmigavel } from '../lib/datas'
 import { IconeCategoria } from '../lib/categorias'
 import { lancamentosComAnexo } from '../lib/anexos'
+import { transferenciasDoMes, type Transferencia } from '../lib/transferencias'
 import { listarDoMes, alternarEfetivado, estenderRecorrencias, rotuloRecorrencia, type Lancamento } from '../lib/lancamentos'
 
 type FiltroTipo = 'todos' | 'receita' | 'despesa'
@@ -32,6 +33,7 @@ export default function Lancamentos() {
   const [contas, setContas] = useState<Map<string, string>>(new Map())
   const [erro, setErro] = useState('')
   const [comAnexo, setComAnexo] = useState<Set<string>>(new Set())
+  const [transfs, setTransfs] = useState<Transferencia[]>([])
 
   const mudar = (novos: Record<string, string>) => {
     const p = new URLSearchParams(parametros)
@@ -57,7 +59,11 @@ export default function Lancamentos() {
     setErro('')
     try {
       await estenderRecorrencias()
-      const l = await listarDoMes(paraIso(mes), paraIso(somarMeses(mes, 1)))
+      const [l, t] = await Promise.all([
+        listarDoMes(paraIso(mes), paraIso(somarMeses(mes, 1))),
+        transferenciasDoMes(paraIso(mes), paraIso(somarMeses(mes, 1)))
+      ])
+      setTransfs(t)
       setLista(l)
       lancamentosComAnexo(l.map(x => x.id)).then(setComAnexo).catch(() => {})
     } catch { setErro('Não foi possível carregar os lançamentos.') }
@@ -83,11 +89,17 @@ export default function Lancamentos() {
     return { rec, desp }
   }, [filtrada])
 
+  // Transferências aparecem em "Todos" (são sempre efetivadas, não são receita nem despesa).
+  const transfsVisiveis = tipo === 'todos' && situacao !== 'pendente' ? transfs : []
+
+  type Item = { tipo: 'lanc'; l: Lancamento } | { tipo: 'transf'; t: Transferencia }
   const porDia = useMemo(() => {
-    const g = new Map<string, Lancamento[]>()
-    for (const l of filtrada) { if (!g.has(l.data_vencimento)) g.set(l.data_vencimento, []); g.get(l.data_vencimento)!.push(l) }
-    return [...g.entries()]
-  }, [filtrada])
+    const g = new Map<string, Item[]>()
+    const add = (dia: string, it: Item) => { if (!g.has(dia)) g.set(dia, []); g.get(dia)!.push(it) }
+    for (const l of filtrada) add(l.data_vencimento, { tipo: 'lanc', l })
+    for (const t of transfsVisiveis) add(t.data, { tipo: 'transf', t })
+    return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [filtrada, transfsVisiveis])
 
   return (
     <>
@@ -124,7 +136,7 @@ export default function Lancamentos() {
 
         {erro && <p className="erro">{erro}</p>}
         {!lista && !erro && <p className="aviso">Carregando…</p>}
-        {lista && filtrada.length === 0 && (
+        {lista && filtrada.length === 0 && transfsVisiveis.length === 0 && (
           <section className="cartao vazio">
             <IconReceipt size={32} />
             <strong>Nenhum lançamento</strong>
@@ -136,7 +148,24 @@ export default function Lancamentos() {
           <section key={dia} className="grupo-dia">
             <h3>{diaAmigavel(dia)}</h3>
             <div className="cartao lista">
-              {itens.map(l => {
+              {itens.map(item => {
+                if (item.tipo === 'transf') {
+                  const t = item.t
+                  return (
+                    <div key={t.id} className="item-lanc">
+                      <button className="item-lista" onClick={() => ir(`/transferencias/${t.id}`)}>
+                        <span className="bolinha" style={{ background: '#E5A50A' }}><IconArrowsExchange size={20} /></span>
+                        <span className="nome">
+                          {t.descricao || 'Transferência'}
+                          <small>{contas.get(t.conta_origem_id) ?? 'Conta'} → {contas.get(t.conta_destino_id) ?? 'Conta'}</small>
+                        </span>
+                        <span className="valor" style={{ color: 'var(--texto-2)' }}>{reais(t.valor)}</span>
+                      </button>
+                      <span className="check-efetivar" aria-hidden="true" style={{ width: 38 }} />
+                    </div>
+                  )
+                }
+                const l = item.l
                 const cat = l.categoria_id ? categorias.get(l.categoria_id) : undefined
                 const atrasado = !l.efetivado && l.data_vencimento < hoje
                 const rec = rotuloRecorrencia(l)

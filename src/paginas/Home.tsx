@@ -17,6 +17,7 @@ interface Resumo {
   receitas: { feito: number; previsto: number; pendentes: number; totalPendente: number }
   despesas: { feito: number; previsto: number; pendentes: number; totalPendente: number }
   faturas: { total: number; aberto: number }
+  transferencias: { total: number; quantidade: number }
   temContas: boolean
 }
 
@@ -31,7 +32,7 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
   const inicio = iso(mes)
   const fim = iso(somarMeses(mes, 1))
 
-  const [contas, efetivados, doMes, cartao, pagos] = await Promise.all([
+  const [contas, efetivados, doMes, cartao, pagos, transf] = await Promise.all([
     supabase.from('contas').select('saldo_inicial').eq('ativa', true),
     supabase.from('lancamentos').select('tipo, valor, data_efetivacao')
       .eq('efetivado', true).in('tipo', ['receita', 'despesa']).lt('data_efetivacao', fim),
@@ -39,7 +40,8 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
       .in('tipo', ['receita', 'despesa']).gte('data_vencimento', inicio).lt('data_vencimento', fim),
     supabase.from('lancamentos').select('valor, fatura:faturas(situacao)')
       .eq('tipo', 'despesa_cartao').gte('data_vencimento', inicio).lt('data_vencimento', fim),
-    supabase.from('pagamentos_fatura').select('valor, data').lt('data', fim)
+    supabase.from('pagamentos_fatura').select('valor, data').lt('data', fim),
+    supabase.from('transferencias').select('valor').gte('data', inicio).lt('data', fim)
   ])
 
   const somaContas = (contas.data ?? []).reduce((s, c) => s + Number(c.saldo_inicial), 0)
@@ -78,6 +80,10 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
     saldoInicial, saldoAtual,
     saldoPrevisto: saldoAtual + r.totalPendente - d.totalPendente - faturas.aberto,
     receitas: r, despesas: d, faturas,
+    transferencias: {
+      total: (transf.data ?? []).reduce((s, t) => s + Number(t.valor), 0),
+      quantidade: (transf.data ?? []).length
+    },
     temContas: (contas.data ?? []).length > 0
   }
 }
@@ -170,10 +176,13 @@ export default function Home() {
             <span className="nome">Faturas de cartão<small>Em aberto</small></span>
             <span className="valores">{reais(resumo?.faturas.total ?? 0)}<small>{reais(resumo?.faturas.aberto ?? 0)}</small></span>
           </div>
-          <div className="linha-resumo">
+          <div className="linha-resumo" role="button" tabIndex={0} style={{ cursor: 'pointer' }}
+            onClick={() => ir(`/lancamentos?mes=${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}&tipo=todos&situacao=todas`)}>
             <span className="bolinha" style={{ background: '#E5A50A' }}><IconArrowsExchange size={20} /></span>
-            <span className="nome">Balanço transferências</span>
-            <span className="valores">{reais(0)}</span>
+            <span className="nome">Transferências entre contas
+              <small>{resumo?.transferencias.quantidade ? `${resumo.transferencias.quantidade} no mês · não alteram o saldo total` : 'Nenhuma no mês'}</small>
+            </span>
+            <span className="valores">{reais(resumo?.transferencias.total ?? 0)}</span>
           </div>
         </section>
       </div>

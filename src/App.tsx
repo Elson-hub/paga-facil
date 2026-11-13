@@ -17,6 +17,7 @@ import Lancamentos from './paginas/Lancamentos'
 import LancamentoForm from './paginas/LancamentoForm'
 import CompraCartaoForm from './paginas/CompraCartaoForm'
 import Fatura from './paginas/Fatura'
+import TransferenciaForm from './paginas/TransferenciaForm'
 
 function Rotas() {
   const { sessao, carregando, recuperandoSenha } = useAuth()
@@ -41,7 +42,8 @@ function Rotas() {
         <Route path="lancamentos/:id" element={<LancamentoForm key="editar" />} />
         <Route path="novo/receita" element={<LancamentoForm key="receita" tipoNovo="receita" />} />
         <Route path="novo/despesa" element={<LancamentoForm key="despesa" tipoNovo="despesa" />} />
-        <Route path="novo/transferencia" element={<EmBreve titulo="Nova transferência" quando="na entrega 3" />} />
+        <Route path="novo/transferencia" element={<TransferenciaForm key="nova-transf" />} />
+        <Route path="transferencias/:id" element={<TransferenciaForm key="editar-transf" />} />
         <Route path="novo/despesa-cartao" element={<CompraCartaoForm key="nova-compra" />} />
         <Route path="compras/:id" element={<CompraCartaoForm key="editar-compra" />} />
         <Route path="cartoes/:id/fatura" element={<Fatura />} />
