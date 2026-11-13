@@ -73,7 +73,9 @@ export async function listarAnexos(lancamentoId: string): Promise<Anexo[]> {
 export async function linksDosAnexos(caminhos: string[]): Promise<Map<string, string>> {
   if (!caminhos.length) return new Map()
   const { data } = await supabase.storage.from(BUCKET).createSignedUrls(caminhos, 600)
-  return new Map((data ?? []).filter(d => d.signedUrl && d.path).map(d => [d.path as string, d.signedUrl]))
+  const pares: [string, string][] = []
+  for (const d of data ?? []) if (d.path && d.signedUrl) pares.push([d.path, d.signedUrl])
+  return new Map(pares)
 }
 
 export async function excluirAnexo(a: Anexo) {

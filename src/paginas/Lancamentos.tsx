@@ -42,7 +42,7 @@ export default function Lancamentos() {
 
   useEffect(() => {
     supabase.from('categorias').select('id, nome, icone, cor, categoria_pai_id').then(({ data }) => {
-      const porId = new Map((data ?? []).map(c => [c.id, c]))
+      const porId = new Map((data ?? []).map(c => [c.id, c] as [string, typeof c]))
       const m = new Map<string, InfoCategoria>()
       for (const c of data ?? []) {
         const pai = c.categoria_pai_id ? porId.get(c.categoria_pai_id) : null
@@ -50,7 +50,7 @@ export default function Lancamentos() {
       }
       setCategorias(m)
     })
-    supabase.from('contas').select('id, descricao').then(({ data }) => setContas(new Map((data ?? []).map(c => [c.id, c.descricao]))))
+    supabase.from('contas').select('id, descricao').then(({ data }) => setContas(new Map((data ?? []).map(c => [c.id, c.descricao] as [string, string]))))
   }, [])
 
   const carregar = useCallback(async () => {
