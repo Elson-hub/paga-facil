@@ -197,13 +197,20 @@ export async function alternarEfetivado(l: Pick<Lancamento, 'id' | 'efetivado' |
 
 const CAMPOS = 'id, tipo, descricao, valor, data_lancamento, data_vencimento, efetivado, data_efetivacao, categoria_id, conta_id, cartao_id, fatura_id, recorrencia_id, parcela_numero, observacao, recorrencia:recorrencias(frequencia, total_parcelas, data_fim, quantidade)'
 
+/** Ajusta o que vem do banco: valor numérico e recorrência como item (às vezes vem como lista). */
+function normalizar(bruto: unknown): Lancamento {
+  const l = bruto as Record<string, unknown>
+  const rec = Array.isArray(l.recorrencia) ? l.recorrencia[0] ?? null : l.recorrencia ?? null
+  return { ...(l as unknown as Lancamento), valor: Number(l.valor), recorrencia: rec as Lancamento['recorrencia'] }
+}
+
 export async function buscarLancamento(id: string): Promise<Lancamento> {
   const [{ data, error }, tags] = await Promise.all([
     supabase.from('lancamentos').select(CAMPOS).eq('id', id).single(),
     supabase.from('lancamento_tags').select('tag_id').eq('lancamento_id', id)
   ])
   if (error || !data) throw error
-  return { ...(data as unknown as Lancamento), valor: Number(data.valor), tags: (tags.data ?? []).map(t => t.tag_id) }
+  return { ...normalizar(data), tags: (tags.data ?? []).map(t => t.tag_id) }
 }
 
 /** Receitas e despesas (não de cartão) com vencimento no mês. */
@@ -212,7 +219,7 @@ export async function listarDoMes(inicio: string, fim: string): Promise<Lancamen
     .in('tipo', ['receita', 'despesa']).gte('data_vencimento', inicio).lt('data_vencimento', fim)
     .order('data_vencimento').order('criado_em')
   if (error) throw error
-  return (data ?? []).map(l => ({ ...(l as unknown as Lancamento), valor: Number(l.valor) }))
+  return (data ?? []).map(normalizar)
 }
 
 let extensao: Promise<void> | null = null

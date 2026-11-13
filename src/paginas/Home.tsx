@@ -60,9 +60,11 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
 
   // Faturas de cartão que vencem no mês e ainda não foram pagas.
   const faturas = { total: 0, aberto: 0 }
-  for (const l of (cartao.data ?? []) as { valor: number; fatura: { situacao: string } | null }[]) {
+  for (const l of (cartao.data ?? []) as unknown as { valor: number; fatura: unknown }[]) {
+    // A fatura ligada pode vir como item ou como lista de um item.
+    const f = (Array.isArray(l.fatura) ? l.fatura[0] : l.fatura) as { situacao?: string } | null
     faturas.total += Number(l.valor)
-    if (l.fatura?.situacao !== 'paga') faturas.aberto += Number(l.valor)
+    if (f?.situacao !== 'paga') faturas.aberto += Number(l.valor)
   }
 
   const saldoInicial = somaContas + antes

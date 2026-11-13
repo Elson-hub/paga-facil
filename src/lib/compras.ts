@@ -208,10 +208,13 @@ export async function carregarFatura(cartaoId: string, mesReferencia: string) {
     .select('id, descricao, valor, data_lancamento, categoria_id, parcela_numero, recorrencia:recorrencias(frequencia, total_parcelas)')
     .eq('fatura_id', fatura.id).order('data_lancamento', { ascending: false }).order('criado_em', { ascending: false })
   if (error) throw error
-  const itens: ItemFatura[] = (data ?? []).map((l: any) => ({
-    id: l.id, descricao: l.descricao, valor: Number(l.valor), data_lancamento: l.data_lancamento,
-    categoria_id: l.categoria_id, parcela_numero: l.parcela_numero,
-    total_parcelas: l.recorrencia?.total_parcelas ?? null, frequencia: l.recorrencia?.frequencia ?? null
-  }))
+  const itens: ItemFatura[] = ((data ?? []) as unknown as Record<string, any>[]).map(l => {
+    const rec = Array.isArray(l.recorrencia) ? l.recorrencia[0] : l.recorrencia
+    return {
+      id: l.id, descricao: l.descricao, valor: Number(l.valor), data_lancamento: l.data_lancamento,
+      categoria_id: l.categoria_id, parcela_numero: l.parcela_numero,
+      total_parcelas: rec?.total_parcelas ?? null, frequencia: rec?.frequencia ?? null
+    }
+  })
   return { fatura: { ...fatura, valor_pago: Number(fatura.valor_pago) } as Fatura, itens }
 }
