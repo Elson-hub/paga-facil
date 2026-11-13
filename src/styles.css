@@ -478,3 +478,12 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .btn-desbloquear { max-width: 320px; background: #fff; color: var(--principal); border: 0; height: 52px; font-size: 16px; font-weight: 600; }
 .erro-bloqueio { background: rgba(255, 255, 255, .15); border-radius: 10px; padding: 8px 12px; font-size: 14px; max-width: 320px; opacity: 1 !important; }
 .link-senha { margin-top: 18px; background: none; border: 0; color: inherit; opacity: .85; text-decoration: underline; cursor: pointer; font-size: 14px; }
+
+/* ---------- Configurações de fábrica ---------- */
+.zona-perigo { display: flex; flex-direction: column; gap: 10px; border: 1px solid color-mix(in srgb, var(--despesa) 35%, transparent); }
+.btn-perigo { color: var(--despesa); border-color: color-mix(in srgb, var(--despesa) 45%, transparent); }
+.btn-perigo-cheio { background: var(--despesa); color: #fff; border-color: transparent; }
+.alerta-perigo { display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--despesa) 10%, transparent); color: var(--texto); }
+.alerta-perigo > svg { color: var(--despesa); flex: none; margin-top: 2px; }
+.alerta-perigo ul { margin: 8px 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.alerta-perigo small { color: var(--texto-2); }
