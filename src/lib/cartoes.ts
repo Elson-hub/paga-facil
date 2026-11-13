@@ -72,7 +72,8 @@ export async function listarCartoes(): Promise<CartaoComUso[]> {
   ])
   if (cartoes.error) throw cartoes.error
 
-  const pagas = new Set((faturas.data ?? []).filter(f => f.situacao === 'paga').map(f => f.id))
+  // Fatura paga, ou paga em parte (o restante já foi levado para a fatura seguinte).
+  const pagas = new Set((faturas.data ?? []).filter(f => f.situacao === 'paga' || f.situacao === 'paga_parcial').map(f => f.id))
   const pagoPorFatura = new Map<string, number>()
   for (const p of pagos.data ?? []) pagoPorFatura.set(p.fatura_id, (pagoPorFatura.get(p.fatura_id) ?? 0) + Number(p.valor))
 

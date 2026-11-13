@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { IconArrowLeft, IconChevronLeft, IconChevronRight, IconPencil, IconPlus, IconReceipt, IconRepeat } from '@tabler/icons-react'
+import { IconArrowLeft, IconChevronLeft, IconChevronRight, IconPencil, IconPlus, IconReceipt, IconRepeat, IconCash, IconArrowBackUp } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
+import Folha from '../componentes/Folha'
+import CampoValor from '../componentes/CampoValor'
+import { listarPagamentos, pagarFatura, desfazerPagamento, faturaQuitada, type Pagamento } from '../lib/pagamentos'
 import { supabase } from '../lib/supabase'
 import { reais } from '../lib/formato'
 import { dataBr, hojeIso, paraIso, dataNoMes } from '../lib/datas'
@@ -25,6 +28,15 @@ export default function Fatura() {
   const [itens, setItens] = useState<ItemFatura[] | null>(null)
   const [categorias, setCategorias] = useState<Map<string, InfoCategoria>>(new Map())
   const [erro, setErro] = useState('')
+  const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
+  const [contas, setContas] = useState<{ id: string; descricao: string }[]>([])
+  const [pagando, setPagando] = useState(false)
+  const [valorPg, setValorPg] = useState(0)
+  const [contaPg, setContaPg] = useState('')
+  const [dataPg, setDataPg] = useState(hojeIso())
+  const [erroPg, setErroPg] = useState('')
+  const [enviandoPg, setEnviandoPg] = useState(false)
+  const [recarregar, setRecarregar] = useState(0)
 
   useEffect(() => {
     supabase.from('cartoes').select('id, nome, bandeira, limite, conta_pagamento_id, dia_fechamento, tipo_vencimento, dia_vencimento, dias_apos_fechamento, cor, ativo')
@@ -32,6 +44,7 @@ export default function Fatura() {
         if (error || !data) setErro('Cartão não encontrado.')
         else setCartao({ ...data, limite: Number(data.limite) } as Cartao)
       })
+    supabase.from('contas').select('id, descricao').eq('ativa', true).order('descricao').then(({ data }) => setContas(data ?? []))
     supabase.from('categorias').select('id, nome, icone, cor, categoria_pai_id').then(({ data }) => {
       const porId = new Map((data ?? []).map(c => [c.id, c] as [string, typeof c]))
       const m = new Map<string, InfoCategoria>()
@@ -62,9 +75,12 @@ export default function Fatura() {
     setItens(null)
     estenderRecorrencias()
       .then(() => carregarFatura(id, mesRef))
-      .then(r => { setFatura(r.fatura); setItens(r.itens) })
+      .then(async r => {
+        setFatura(r.fatura); setItens(r.itens)
+        setPagamentos(r.fatura ? await listarPagamentos(r.fatura.id) : [])
+      })
       .catch(() => setErro('Não foi possível carregar a fatura.'))
-  }, [id, mesRef])
+  }, [id, mesRef, recarregar])
 
   function mudarMes(delta: number) {
     if (!mesRef) return
@@ -73,6 +89,41 @@ export default function Fatura() {
   }
 
   const total = (itens ?? []).reduce((s, i) => s + i.valor, 0)
+  const jaPago = pagamentos.reduce((s, p) => s + p.valor, 0)
+  const aPagar = Math.max(0, Math.round((total - jaPago) * 100) / 100)
+  const quitada = faturaQuitada(fatura?.situacao)
+  const nomeConta = (cid: string) => contas.find(c => c.id === cid)?.descricao ?? 'Conta'
+
+  function abrirPagamento() {
+    setValorPg(aPagar)
+    setContaPg(cartao?.conta_pagamento_id && contas.some(c => c.id === cartao.conta_pagamento_id) ? cartao.conta_pagamento_id : contas[0]?.id ?? '')
+    setDataPg(hojeIso()); setErroPg(''); setPagando(true)
+  }
+
+  async function confirmarPagamento() {
+    if (!cartao || !fatura || !datas) return
+    if (valorPg <= 0) return setErroPg('Informe o valor pago.')
+    if (Math.round(valorPg * 100) > Math.round(aPagar * 100)) return setErroPg(`O valor não pode passar de ${reais(aPagar)}.`)
+    if (!contaPg) return setErroPg('Escolha a conta de onde saiu o dinheiro.')
+    setErroPg(''); setEnviandoPg(true)
+    try {
+      await pagarFatura({
+        cartao, fatura: { id: fatura.id, mes_referencia: fatura.mes_referencia, data_vencimento: datas.data_vencimento },
+        total, jaPago, valor: valorPg, conta_id: contaPg, data: dataPg
+      })
+      setPagando(false); setRecarregar(n => n + 1)
+    } catch { setErroPg('Não foi possível registrar o pagamento. Tente de novo.') }
+    setEnviandoPg(false)
+  }
+
+  async function desfazer(p: Pagamento) {
+    const aviso = p.valor < total
+      ? `Desfazer o pagamento de ${reais(p.valor)}? O saldo levado para a fatura seguinte também será retirado.`
+      : `Desfazer o pagamento de ${reais(p.valor)}?`
+    if (!window.confirm(aviso)) return
+    try { await desfazerPagamento(p, total); setRecarregar(n => n + 1) }
+    catch { setErro('Não foi possível desfazer o pagamento.') }
+  }
   const hoje = hojeIso()
   const situacao = fatura?.situacao === 'paga' ? 'Paga'
     : fatura?.situacao === 'paga_parcial' ? 'Paga em parte'
@@ -105,7 +156,28 @@ export default function Fatura() {
           <section className="cartao datas-fatura">
             <div><small>Fecha em</small><strong>{dataBr(datas.data_fechamento)}</strong></div>
             <div><small>Vence em</small><strong>{dataBr(datas.data_vencimento)}</strong></div>
-            {fatura && fatura.valor_pago > 0 && <div><small>Pago</small><strong style={{ color: 'var(--receita)' }}>{reais(fatura.valor_pago)}</strong></div>}
+            {jaPago > 0 && <div><small>Pago</small><strong style={{ color: 'var(--receita)' }}>{reais(jaPago)}</strong></div>}
+          </section>
+        )}
+
+        {fatura && total > 0 && !quitada && (
+          <button className="btn btn-principal btn-bloco" onClick={abrirPagamento}><IconCash size={20} />Pagar fatura · {reais(aPagar)}</button>
+        )}
+
+        {pagamentos.length > 0 && (
+          <section className="cartao lista">
+            <h2 style={{ padding: '6px 8px 4px' }}>Pagamentos</h2>
+            {pagamentos.map(p => (
+              <div key={p.id} className="linha-pagamento">
+                <span className="nome">{reais(p.valor)}<small>{dataBr(p.data)} · {nomeConta(p.conta_id)}</small></span>
+                <button className="btn" onClick={() => desfazer(p)}><IconArrowBackUp size={16} />Desfazer</button>
+              </div>
+            ))}
+            {fatura?.situacao === 'paga_parcial' && (
+              <p className="aviso" style={{ padding: '4px 8px 8px' }}>
+                Restante de {reais(Math.max(0, total - jaPago))} levado para a fatura seguinte como "Saldo da fatura anterior".
+              </p>
+            )}
           </section>
         )}
 
@@ -138,6 +210,32 @@ export default function Fatura() {
           </section>
         )}
       </div>
+      <Folha titulo="Pagar fatura" aberta={pagando} onFechar={() => setPagando(false)}>
+        <div className="formulario" style={{ padding: '8px 6px' }}>
+          <p className="destaque-info" style={{ margin: 0 }}>
+            Total da fatura <b>{reais(total)}</b>{jaPago > 0 && <> · já pago {reais(jaPago)}</>} · vence {datas ? dataBr(datas.data_vencimento) : ''}
+          </p>
+          <CampoValor id="valorPg" rotulo="Valor pago" valor={valorPg} onChange={setValorPg} />
+          {valorPg > 0 && valorPg < aPagar && (
+            <small className="ajuda">Pagamento parcial: os {reais(Math.round((aPagar - valorPg) * 100) / 100)} restantes vão para a fatura seguinte.</small>
+          )}
+          <div className="campo">
+            <label htmlFor="contaPg">Pago com a conta</label>
+            <select id="contaPg" value={contaPg} onChange={e => setContaPg(e.target.value)}>
+              {contas.length === 0 && <option value="">Nenhuma conta cadastrada</option>}
+              {contas.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
+            </select>
+          </div>
+          <div className="campo">
+            <label htmlFor="dataPg">Data do pagamento</label>
+            <input id="dataPg" type="date" value={dataPg} onChange={e => setDataPg(e.target.value)} />
+          </div>
+          {erroPg && <p className="erro">{erroPg}</p>}
+          <button type="button" className="btn btn-principal btn-bloco" disabled={enviandoPg} onClick={confirmarPagamento}>
+            {enviandoPg ? 'Registrando…' : `Confirmar pagamento de ${reais(valorPg)}`}
+          </button>
+        </div>
+      </Folha>
       <button className="fab" aria-label="Nova despesa no cartão" onClick={() => ir(`/novo/despesa-cartao?cartao=${id}`)}><IconPlus size={28} /></button>
     </>
   )

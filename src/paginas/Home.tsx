@@ -31,14 +31,15 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
   const inicio = iso(mes)
   const fim = iso(somarMeses(mes, 1))
 
-  const [contas, efetivados, doMes, cartao] = await Promise.all([
+  const [contas, efetivados, doMes, cartao, pagos] = await Promise.all([
     supabase.from('contas').select('saldo_inicial').eq('ativa', true),
     supabase.from('lancamentos').select('tipo, valor, data_efetivacao')
       .eq('efetivado', true).in('tipo', ['receita', 'despesa']).lt('data_efetivacao', fim),
     supabase.from('lancamentos').select('tipo, valor, efetivado')
       .in('tipo', ['receita', 'despesa']).gte('data_vencimento', inicio).lt('data_vencimento', fim),
     supabase.from('lancamentos').select('valor, fatura:faturas(situacao)')
-      .eq('tipo', 'despesa_cartao').gte('data_vencimento', inicio).lt('data_vencimento', fim)
+      .eq('tipo', 'despesa_cartao').gte('data_vencimento', inicio).lt('data_vencimento', fim),
+    supabase.from('pagamentos_fatura').select('valor, data').lt('data', fim)
   ])
 
   const somaContas = (contas.data ?? []).reduce((s, c) => s + Number(c.saldo_inicial), 0)
@@ -46,6 +47,10 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
   for (const l of efetivados.data ?? []) {
     const v = l.tipo === 'receita' ? Number(l.valor) : -Number(l.valor)
     if (l.data_efetivacao < inicio) antes += v; else noMes += v
+  }
+  // Pagamentos de fatura saem da conta na data do pagamento.
+  for (const p of pagos.data ?? []) {
+    if (p.data < inicio) antes -= Number(p.valor); else noMes -= Number(p.valor)
   }
 
   const r = { feito: 0, previsto: 0, pendentes: 0, totalPendente: 0 }
@@ -64,7 +69,7 @@ async function carregarResumo(mes: Date): Promise<Resumo> {
     // A fatura ligada pode vir como item ou como lista de um item.
     const f = (Array.isArray(l.fatura) ? l.fatura[0] : l.fatura) as { situacao?: string } | null
     faturas.total += Number(l.valor)
-    if (f?.situacao !== 'paga') faturas.aberto += Number(l.valor)
+    if (f?.situacao !== 'paga' && f?.situacao !== 'paga_parcial') faturas.aberto += Number(l.valor)
   }
 
   const saldoInicial = somaContas + antes
