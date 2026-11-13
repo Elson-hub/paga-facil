@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
 import BotaoMais from '../componentes/BotaoMais'
+import GraficosHome from '../componentes/GraficosHome'
 import { supabase } from '../lib/supabase'
 import { reais, nomeDoMes, somarMeses } from '../lib/formato'
 import { estenderRecorrencias } from '../lib/lancamentos'
@@ -185,6 +186,8 @@ export default function Home() {
             <span className="valores">{reais(resumo?.transferencias.total ?? 0)}</span>
           </div>
         </section>
+
+        <GraficosHome mes={mes} />
       </div>
       <BotaoMais />
     </>
