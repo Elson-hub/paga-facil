@@ -487,3 +487,18 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .alerta-perigo > svg { color: var(--despesa); flex: none; margin-top: 2px; }
 .alerta-perigo ul { margin: 8px 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 .alerta-perigo small { color: var(--texto-2); }
+
+/* ---------- Foto do usuário ---------- */
+.avatar {
+  border-radius: 50%; overflow: hidden; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--principal); color: var(--sobre-principal); font-weight: 700;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-perfil { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.foto-acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.btn-texto { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--texto-2); cursor: pointer; padding: 8px; font-size: 14px; }
+.menu .menu-usuario { display: flex; align-items: center; gap: 12px; padding: 8px 12px 16px; border-bottom: 1px solid var(--borda); border-radius: 0; margin-bottom: 8px; }
+.menu .menu-usuario.active { background: none; color: var(--texto); font-weight: 400; }
+.menu-usuario-texto { min-width: 0; }
+.menu-usuario-texto strong { display: block; }
+.menu-usuario-texto span { display: block; font-size: 13px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

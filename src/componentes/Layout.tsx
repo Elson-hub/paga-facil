@@ -5,13 +5,14 @@ import {
   IconPalette, IconCloudUpload, IconPlugConnected, IconUser, IconLogout
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/auth'
+import Avatar from './Avatar'
 
 const MenuContext = createContext<() => void>(() => {})
 /** Abre o menu lateral (usado pelo botão ☰ do cabeçalho). */
 export const useAbrirMenu = () => useContext(MenuContext)
 
 export default function Layout() {
-  const { sessao, perfil, sair } = useAuth()
+  const { sessao, perfil, sair, fotoUrl } = useAuth()
   const [aberto, setAberto] = useState(false)
   const fechar = () => setAberto(false)
   const t = 20
@@ -21,10 +22,13 @@ export default function Layout() {
       <div className="app">
         {aberto && <div className="menu-fundo" onClick={fechar} />}
         <nav className={`menu ${aberto ? 'aberto' : ''}`} onClick={e => (e.target as HTMLElement).closest('a') && fechar()}>
-          <div className="menu-usuario">
-            <strong>{perfil?.nome || 'Paga Fácil'}</strong>
-            <span>{sessao?.user.email}</span>
-          </div>
+          <NavLink to="/minha-conta" className="menu-usuario">
+            <Avatar url={fotoUrl} nome={perfil?.nome || sessao?.user.email || ''} tamanho={44} />
+            <span className="menu-usuario-texto">
+              <strong>{perfil?.nome || 'Paga Fácil'}</strong>
+              <span>{sessao?.user.email}</span>
+            </span>
+          </NavLink>
           <NavLink to="/" end><IconHome size={t} />Início</NavLink>
           <NavLink to="/lancamentos"><IconList size={t} />Lançamentos</NavLink>
 

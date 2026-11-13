@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconAlertTriangle } from '@tabler/icons-react'
+import { IconAlertTriangle, IconCamera, IconPhoto, IconTrash } from '@tabler/icons-react'
+import Avatar from '../componentes/Avatar'
 import Topo from '../componentes/Topo'
 import Folha from '../componentes/Folha'
 import { redefinirConta } from '../lib/redefinir'
@@ -9,7 +10,30 @@ import { supabase } from '../lib/supabase'
 import { biometriaDisponivel, bloqueioAtivo, ativarBloqueio, desativarBloqueio, nomeBiometria } from '../lib/bloqueio'
 
 export default function MinhaConta() {
-  const { sessao, perfil, atualizarPerfil, sair } = useAuth()
+  const { sessao, perfil, atualizarPerfil, sair, fotoUrl, trocarFoto } = useAuth()
+  const camera = useRef<HTMLInputElement>(null)
+  const galeria = useRef<HTMLInputElement>(null)
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const [msgFoto, setMsgFoto] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  async function escolherFoto(arquivo: File | null | undefined) {
+    if (camera.current) camera.current.value = ''
+    if (galeria.current) galeria.current.value = ''
+    if (!arquivo) return
+    if (!arquivo.type.startsWith('image/')) return setMsgFoto({ ok: false, texto: 'Escolha uma imagem (foto).' })
+    setMsgFoto(null); setEnviandoFoto(true)
+    const erro = await trocarFoto(arquivo)
+    setEnviandoFoto(false)
+    setMsgFoto(erro ? { ok: false, texto: erro } : { ok: true, texto: 'Foto atualizada.' })
+  }
+
+  async function removerFoto() {
+    if (!window.confirm('Remover sua foto?')) return
+    setEnviandoFoto(true)
+    const erro = await trocarFoto(null)
+    setEnviandoFoto(false)
+    setMsgFoto(erro ? { ok: false, texto: erro } : { ok: true, texto: 'Foto removida.' })
+  }
   const [nome, setNome] = useState('')
   const [msgNome, setMsgNome] = useState('')
   const [senha, setSenha] = useState('')
@@ -80,6 +104,27 @@ export default function MinhaConta() {
     <>
       <Topo titulo="Minha conta" />
       <div className="pagina">
+        <section className="cartao foto-perfil">
+          <Avatar url={fotoUrl} nome={perfil?.nome || sessao?.user.email || ''} tamanho={96} />
+          <div className="foto-acoes">
+            <input ref={camera} type="file" accept="image/*" capture="user" hidden onChange={e => escolherFoto(e.target.files?.[0])} />
+            <input ref={galeria} type="file" accept="image/*" hidden onChange={e => escolherFoto(e.target.files?.[0])} />
+            <button type="button" className="btn" disabled={enviandoFoto} onClick={() => camera.current?.click()}>
+              <IconCamera size={18} />Tirar foto
+            </button>
+            <button type="button" className="btn" disabled={enviandoFoto} onClick={() => galeria.current?.click()}>
+              <IconPhoto size={18} />Escolher da galeria
+            </button>
+            {perfil?.foto && (
+              <button type="button" className="btn-texto" disabled={enviandoFoto} onClick={removerFoto}>
+                <IconTrash size={16} />Remover foto
+              </button>
+            )}
+          </div>
+          {enviandoFoto && <p className="aviso">Enviando…</p>}
+          {msgFoto && <p className={msgFoto.ok ? 'sucesso' : 'erro'}>{msgFoto.texto}</p>}
+        </section>
+
         <form className="cartao" onSubmit={salvarNome} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h2>Dados</h2>
           <div className="campo"><label htmlFor="nome">Nome</label>
