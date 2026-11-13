@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Topo from '../componentes/Topo'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { biometriaDisponivel, bloqueioAtivo, ativarBloqueio, desativarBloqueio, nomeBiometria } from '../lib/bloqueio'
 
 export default function MinhaConta() {
   const { sessao, perfil, atualizarPerfil, sair } = useAuth()
@@ -10,7 +11,32 @@ export default function MinhaConta() {
   const [senha, setSenha] = useState('')
   const [msgSenha, setMsgSenha] = useState<{ ok: boolean; texto: string } | null>(null)
 
+  const uid = sessao?.user.id
+  const [temBiometria, setTemBiometria] = useState<boolean | null>(null)
+  const [travaLigada, setTravaLigada] = useState(bloqueioAtivo(uid))
+  const [msgTrava, setMsgTrava] = useState<{ ok: boolean; texto: string } | null>(null)
+  const biometria = nomeBiometria()
+
   useEffect(() => { setNome(perfil?.nome ?? '') }, [perfil?.nome])
+  useEffect(() => { biometriaDisponivel().then(setTemBiometria) }, [])
+  useEffect(() => { setTravaLigada(bloqueioAtivo(uid)) }, [uid])
+
+  async function alternarTrava(ligar: boolean) {
+    if (!uid) return
+    setMsgTrava(null)
+    if (!ligar) {
+      desativarBloqueio(uid); setTravaLigada(false)
+      setMsgTrava({ ok: true, texto: 'Bloqueio desligado neste aparelho.' })
+      return
+    }
+    try {
+      await ativarBloqueio(uid, sessao?.user.email ?? 'usuario')
+      setTravaLigada(true)
+      setMsgTrava({ ok: true, texto: `Pronto! Ao abrir o app, ele vai pedir o ${biometria}.` })
+    } catch {
+      setMsgTrava({ ok: false, texto: `Não foi possível ativar o ${biometria}. Confira se ele está ligado nos ajustes do aparelho e tente de novo.` })
+    }
+  }
 
   async function salvarNome(e: FormEvent) {
     e.preventDefault()
@@ -48,6 +74,25 @@ export default function MinhaConta() {
           {msgSenha && <p className={msgSenha.ok ? 'sucesso' : 'erro'}>{msgSenha.texto}</p>}
           <button className="btn">Trocar senha</button>
         </form>
+
+        <section className="cartao" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h2>Segurança</h2>
+          {temBiometria === false ? (
+            <p className="aviso">Este aparelho ou navegador não oferece {biometria} para o app. No iPhone, use o app instalado na tela de início (iOS 16 ou mais novo).</p>
+          ) : (
+            <>
+              <label className="interruptor linha-interruptor">
+                <span>Bloquear com {biometria}</span>
+                <input type="checkbox" role="switch" checked={travaLigada} disabled={temBiometria === null}
+                  onChange={e => alternarTrava(e.target.checked)} />
+              </label>
+              <small className="ajuda">
+                Ao abrir o app, ou ao voltar depois de 1 minuto fora dele, o {biometria} é pedido. Vale só para este aparelho.
+              </small>
+            </>
+          )}
+          {msgTrava && <p className={msgTrava.ok ? 'sucesso' : 'erro'}>{msgTrava.texto}</p>}
+        </section>
 
         <button className="btn btn-bloco" onClick={sair} style={{ color: 'var(--despesa)' }}>Sair da conta</button>
       </div>
