@@ -49,7 +49,7 @@ export default function CamposCategoria({ tipo, categorias, setCategorias, catId
       return
     }
     setErro(''); setSalvando(true)
-    const dados = criando === 'categoria'
+    const dados: Record<string, unknown> = criando === 'categoria'
       ? { nome: n, tipo, icone: 'dots', cor, categoria_pai_id: null }
       : { nome: n, tipo, categoria_pai_id: catId }
     const { data, error } = await supabase.from('categorias').insert(dados).select('id').single()
