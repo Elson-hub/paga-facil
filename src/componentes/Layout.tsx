@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/auth'
 import Avatar from './Avatar'
+import { VERSAO_COMPLETA } from '../versao'
 
 const MenuContext = createContext<() => void>(() => {})
 /** Abre o menu lateral (usado pelo botão ☰ do cabeçalho). */
@@ -46,6 +47,7 @@ export default function Layout() {
           <div className="menu-grupo">Conta</div>
           <NavLink to="/minha-conta"><IconUser size={t} />Minha conta</NavLink>
           <button className="menu-item" onClick={sair}><IconLogout size={t} />Sair</button>
+          <div className="menu-versao">Paga Fácil · versão {VERSAO_COMPLETA}</div>
         </nav>
         <main className="conteudo">
           <Outlet />

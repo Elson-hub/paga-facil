@@ -502,3 +502,18 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .menu-usuario-texto { min-width: 0; }
 .menu-usuario-texto strong { display: block; }
 .menu-usuario-texto span { display: block; font-size: 13px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Criar categoria no lançamento ---------- */
+.linha-com-mais { display: flex; gap: 8px; }
+.linha-com-mais select { flex: 1; min-width: 0; }
+.btn-mais {
+  width: 46px; height: 46px; flex: none; border-radius: 10px; border: 1px dashed var(--principal);
+  background: var(--superficie); color: var(--principal); display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.btn-mais:disabled { opacity: .4; cursor: default; border-color: var(--borda); color: var(--texto-3); }
+
+/* ---------- Versão ---------- */
+.menu-versao { margin-top: auto; padding: 16px 12px 4px; font-size: 12px; color: var(--texto-3); }
+.sobre-versao { display: flex; flex-direction: column; gap: 8px; }
+.linha-versao { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--texto-2); }
+.linha-versao b { color: var(--texto); font-weight: 600; }

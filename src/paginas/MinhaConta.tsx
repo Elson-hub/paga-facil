@@ -5,6 +5,7 @@ import Avatar from '../componentes/Avatar'
 import Topo from '../componentes/Topo'
 import Folha from '../componentes/Folha'
 import { redefinirConta } from '../lib/redefinir'
+import { VERSAO, PUBLICACAO, PUBLICACAO_DATA } from '../versao'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { biometriaDisponivel, bloqueioAtivo, ativarBloqueio, desativarBloqueio, nomeBiometria } from '../lib/bloqueio'
@@ -164,6 +165,12 @@ export default function MinhaConta() {
         </section>
 
         <button className="btn btn-bloco" onClick={sair} style={{ color: 'var(--despesa)' }}>Sair da conta</button>
+
+        <section className="cartao sobre-versao">
+          <h2>Sobre o app</h2>
+          <div className="linha-versao"><span>Versão</span><b>{VERSAO} {PUBLICACAO}</b></div>
+          <div className="linha-versao"><span>Publicada em</span><b>{PUBLICACAO_DATA}</b></div>
+        </section>
 
         <section className="cartao zona-perigo">
           <h2>Configurações de fábrica</h2>

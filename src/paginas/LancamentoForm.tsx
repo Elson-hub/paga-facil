@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconRepeat, IconChevronDown } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
@@ -6,6 +6,7 @@ import CampoValor from '../componentes/CampoValor'
 import SeletorTags from '../componentes/SeletorTags'
 import EscolhaEscopo from '../componentes/EscolhaEscopo'
 import Anexos from '../componentes/Anexos'
+import CamposCategoria from '../componentes/CamposCategoria'
 import { enviarAnexo } from '../lib/anexos'
 import { supabase } from '../lib/supabase'
 import { hojeIso, dataBr } from '../lib/datas'
@@ -37,6 +38,7 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
   const [dataEfet, setDataEfet] = useState(hojeIso())
   const [categorias, setCategorias] = useState<CategoriaComSubs[]>([])
   const [catId, setCatId] = useState('')
+  const categoriaSeparada = useRef(false)
   const [subId, setSubId] = useState('')
   const [contaId, setContaId] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -87,16 +89,13 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
 
   // Ao editar: separa a categoria gravada em principal + subcategoria.
   useEffect(() => {
-    if (!original?.categoria_id || !categorias.length) return
+    if (!original?.categoria_id || !categorias.length || categoriaSeparada.current) return
+    categoriaSeparada.current = true
     const alvo = original.categoria_id
     const principal = categorias.find(c => c.id === alvo || c.subcategorias.some(s => s.id === alvo))
     if (principal) { setCatId(principal.id); setSubId(principal.id === alvo ? '' : alvo) }
   }, [original, categorias])
 
-  const subcategorias = useMemo(
-    () => categorias.find(c => c.id === catId)?.subcategorias.filter(s => s.ativa || s.id === subId) ?? [],
-    [categorias, catId, subId]
-  )
 
   function mudarVencimento(v: string) {
     setDataVenc(v)
@@ -229,20 +228,8 @@ export default function LancamentoForm({ tipoNovo }: { tipoNovo?: TipoLancamento
             </section>
 
             <section className="cartao formulario">
-              <div className="campo">
-                <label htmlFor="categoria">Categoria</label>
-                <select id="categoria" value={catId} onChange={e => { setCatId(e.target.value); setSubId('') }}>
-                  <option value="">Escolher categoria</option>
-                  {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-              <div className="campo">
-                <label htmlFor="subcategoria">Subcategoria</label>
-                <select id="subcategoria" value={subId} onChange={e => setSubId(e.target.value)} disabled={!catId || subcategorias.length === 0}>
-                  <option value="">{!catId ? 'Escolha a categoria primeiro' : subcategorias.length === 0 ? 'Esta categoria não tem subcategorias' : 'Nenhuma (opcional)'}</option>
-                  {subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                </select>
-              </div>
+              <CamposCategoria tipo={tipo} categorias={categorias} setCategorias={setCategorias}
+                catId={catId} setCatId={setCatId} subId={subId} setSubId={setSubId} />
               <div className="campo">
                 <label htmlFor="conta">Conta</label>
                 <select id="conta" value={contaId} onChange={e => setContaId(e.target.value)}>

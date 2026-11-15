@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { IconArrowLeft, IconRepeat, IconCreditCard } from '@tabler/icons-react'
 import Topo from '../componentes/Topo'
@@ -6,6 +6,7 @@ import CampoValor from '../componentes/CampoValor'
 import SeletorTags from '../componentes/SeletorTags'
 import EscolhaEscopo from '../componentes/EscolhaEscopo'
 import Anexos from '../componentes/Anexos'
+import CamposCategoria from '../componentes/CamposCategoria'
 import { enviarAnexo } from '../lib/anexos'
 import { hojeIso, dataBr, deIso } from '../lib/datas'
 import { reais } from '../lib/formato'
@@ -35,6 +36,7 @@ export default function CompraCartaoForm() {
   const [cartaoId, setCartaoId] = useState('')
   const [categorias, setCategorias] = useState<CategoriaComSubs[]>([])
   const [catId, setCatId] = useState('')
+  const categoriaSeparada = useRef(false)
   const [subId, setSubId] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [observacao, setObservacao] = useState('')
@@ -76,16 +78,13 @@ export default function CompraCartaoForm() {
   }, [id])
 
   useEffect(() => {
-    if (!original?.categoria_id || !categorias.length) return
+    if (!original?.categoria_id || !categorias.length || categoriaSeparada.current) return
+    categoriaSeparada.current = true
     const alvo = original.categoria_id
     const principal = categorias.find(c => c.id === alvo || c.subcategorias.some(s => s.id === alvo))
     if (principal) { setCatId(principal.id); setSubId(principal.id === alvo ? '' : alvo) }
   }, [original, categorias])
 
-  const subcategorias = useMemo(
-    () => categorias.find(c => c.id === catId)?.subcategorias.filter(s => s.ativa || s.id === subId) ?? [],
-    [categorias, catId, subId]
-  )
 
   const cartao = cartoes?.find(c => c.id === cartaoId)
   const recorrente = !!original?.recorrencia_id
@@ -221,20 +220,8 @@ export default function CompraCartaoForm() {
             </section>
 
             <section className="cartao formulario">
-              <div className="campo">
-                <label htmlFor="categoria">Categoria</label>
-                <select id="categoria" value={catId} onChange={e => { setCatId(e.target.value); setSubId('') }}>
-                  <option value="">Escolher categoria</option>
-                  {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-              <div className="campo">
-                <label htmlFor="subcategoria">Subcategoria</label>
-                <select id="subcategoria" value={subId} onChange={e => setSubId(e.target.value)} disabled={!catId || subcategorias.length === 0}>
-                  <option value="">{!catId ? 'Escolha a categoria primeiro' : subcategorias.length === 0 ? 'Esta categoria não tem subcategorias' : 'Nenhuma (opcional)'}</option>
-                  {subcategorias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                </select>
-              </div>
+              <CamposCategoria tipo={'despesa'} categorias={categorias} setCategorias={setCategorias}
+                catId={catId} setCatId={setCatId} subId={subId} setSubId={setSubId} />
             </section>
 
             {novo && (
